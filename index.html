@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E1C 智慧排座系統 (學號姓名雙支援)</title>
+    <title>E1C 智慧排座系統 (單門版)</title>
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .toolbar { margin-bottom: 20px; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; gap: 10px; }
@@ -32,8 +32,19 @@
         .en-name { font-size: 11px; color: #666; }
         .fixed-tag { font-size: 9px; color: #fff; background: #007bff; padding: 1px 4px; border-radius: 3px; margin-top: 4px; }
 
-        .bottom-area { grid-column: 1 / span 8; display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 10px; border-top: 2px solid #333; width: 100%; }
-        .blackboard { font-size: 20px; font-weight: bold; letter-spacing: 15px; }
+        /* 修改後的底部區域：拿掉右門，黑板居中 */
+        .bottom-area { 
+            grid-column: 1 / span 8; 
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr; /* 分成三份來定位 */
+            align-items: center; 
+            margin-top: 20px; 
+            padding-top: 10px; 
+            border-top: 2px solid #333; 
+            width: 100%; 
+        }
+        .blackboard { font-size: 20px; font-weight: bold; letter-spacing: 15px; text-align: center; grid-column: 2; }
+        .door { border: 1px solid #333; padding: 2px 10px; width: fit-content; grid-column: 1; }
         .tip { color: #666; margin-bottom: 10px; font-size: 14px; text-align: center; }
     </style>
 </head>
@@ -54,7 +65,6 @@
     <div class="classroom" id="grid"></div>
 
     <script>
-        // 完整的 56 位同學資料
         const allStudents = [
             {id:"1114300121", n:"龔昱瑄", e:"Kelly"}, {id:"1114300122", n:"余沛容", e:"Melody"}, {id:"1114300123", n:"陳湘甯", e:"Ariel"}, {id:"1114300124", n:"林沁榆", e:"Amber"}, {id:"1114300125", n:"蕭羽彤", e:"Amelia"}, {id:"1114300126", n:"林奕帆", e:"Ivan"}, {id:"1114300127", n:"陳乙瑄", e:"Sharon"}, {id:"1114300128", n:"王漆妤", e:"Zoie"}, {id:"1114300129", n:"陳靜宜", e:"Luna"}, {id:"1114300130", n:"陳祉恩", e:"Bianca"}, {id:"1114300131", n:"陳又瑄", e:"Christy"}, {id:"1114300132", n:"賴宥璇", e:"Alina"}, {id:"1114300133", n:"陳玟慈", e:"Emily"}, {id:"1114300134", n:"江芯語", e:"Ina"}, {id:"1114300135", n:"陳世豪", e:"Howard"}, {id:"1114300136", n:"曾安岑", e:"Ann"}, {id:"1114300137", n:"賴瑾安", e:"Ashley"}, {id:"1114300138", n:"羅凱爾", e:"Mikayeel"}, {id:"1114300139", n:"辛俊文", e:"Jun-wen"}, {id:"1114300140", n:"黃靖晏", e:"Amber"}, {id:"1114300141", n:"林紫騏", e:"Nancy"}, {id:"1114300142", n:"吳霈瑜", e:"Yuri"}, {id:"1114300143", n:"許唯芯", e:"Una"}, {id:"1114300144", n:"游芯語", e:"Abby"}, {id:"1114300145", n:"李易昌", e:"Jason"}, {id:"1114300146", n:"李婕禕", e:"Eve"}, {id:"1114300147", n:"李恩妮", e:"Miu Miu"}, {id:"1114300148", n:"林金姵", e:"Linda"}, {id:"1114300149", n:"陳可紜", e:"Amber"}, {id:"1114300151", n:"張雅玟", e:"Judy"}, {id:"1114300152", n:"牛昱翔", e:"Sean"}, {id:"1114300153", n:"陳以婕", e:"Emma"}, {id:"1114300154", n:"張鈺婕", e:"Wendy"}, {id:"1114300155", n:"朱雯芳", e:"Mia"}, {id:"1114300156", n:"連子甯", e:"Liliya"}, {id:"1114300157", n:"楊芷芹", e:"Alex"}, {id:"1114300158", n:"陳琦涵", e:"Hannah"}, {id:"1114300159", n:"陳冠宇", e:"Benson"}, {id:"1114300160", n:"陳漢庭", e:"Lina"}, {id:"1114300161", n:"張乙芹", e:"Irene"}, {id:"1114300162", n:"王妍菻", e:"Grace"}, {id:"1114300163", n:"曲孝寬", e:"Miller"}, {id:"1114300164", n:"王以倫", e:"Juan Jose"}, {id:"1114300165", n:"趙于嫻", e:"Abby"}, {id:"1114300166", n:"林宜樺", e:"Novalie"}, {id:"1114300167", n:"柯品瑀", e:"Pamela"}, {id:"1114300168", n:"卓彥均", e:"Cynthia"}, {id:"1114300169", n:"遊梁健雅", e:"Luna"}, {id:"1114300170", n:"張子瑜", e:"Yvonne"}, {id:"1114300171", n:"張湘翊", e:"Cecelia"}, {id:"1114300172", n:"廖靚薇", e:"Nicole"}, {id:"1114300173", n:"黃毓霏", e:"Lily"}, {id:"1114300174", n:"蔡悅琳", e:"Lina"}, {id:"1114300175", n:"陳宥卉", e:"Iris"}, {id:"1114300501", n:"賈伯珍", e:"Haein"}, {id:"1114300502", n:"鄭皓軒", e:"Suppakarn"}
         ];
@@ -83,31 +93,24 @@
                 seatDiv.innerHTML = content;
                 grid.appendChild(seatDiv);
             }
-            // 底部黑板
+            
             const bottom = document.createElement('div');
             bottom.className = 'bottom-area';
-            bottom.innerHTML = `<div style="border:1px solid #333;padding:2px 10px">Door</div><div class="blackboard">BLACKBOARD</div><div style="border:1px solid #333;padding:2px 10px">Door</div>`;
+            bottom.innerHTML = `<div class="door">Door</div><div class="blackboard">BLACKBOARD</div>`;
             grid.appendChild(bottom);
         }
 
         function pickStudent(index) {
-            const query = prompt("請輸入同學姓名或學號後三碼 (例如: 121 或 龔昱瑄)：");
+            const query = prompt("請輸入同學姓名或學號後三碼：");
             if (!query) return;
-
-            // 搜尋邏輯：檢查姓名包含關鍵字 OR 學號結尾符合後三碼
-            const student = allStudents.find(s => 
-                s.n.includes(query) || s.id.endsWith(query)
-            );
-
+            const student = allStudents.find(s => s.n.includes(query) || s.id.endsWith(query));
             if (student) {
-                // 如果該生已經在別的位置，先移除舊位置
                 const oldIdx = seatMap.findIndex(s => s && s.id === student.id);
                 if (oldIdx !== -1) seatMap[oldIdx] = null;
-                
                 seatMap[index] = student;
                 initGrid();
             } else {
-                alert("找不到這位同學，請檢查輸入是否正確！");
+                alert("找不到這位同學！");
             }
         }
 
@@ -115,13 +118,10 @@
             const fixedIds = seatMap.filter(s => s !== null).map(s => s.id);
             let pool = allStudents.filter(s => !fixedIds.includes(s.id));
             pool.sort(() => Math.random() - 0.5);
-
             let poolIdx = 0;
             for (let i = 0; i < 56; i++) {
-                if (seatMap[i] === null) {
-                    if (poolIdx < pool.length) {
-                        seatMap[i] = pool[poolIdx++];
-                    }
+                if (seatMap[i] === null && poolIdx < pool.length) {
+                    seatMap[i] = pool[poolIdx++];
                 }
             }
             initGrid();
