@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E1C 座位對調系統 (初始空白版)</title>
+    <title>E1C 座位管理系統 (修復版)</title>
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .toolbar { margin-bottom: 20px; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; gap: 10px; }
@@ -14,21 +14,13 @@
         button:hover { opacity: 0.8; }
 
         .classroom-container { background: #fff; padding: 40px; border: 3px solid #333; position: relative; min-width: 950px; }
-        
-        /* 門在左上角 */
         .top-door { position: absolute; top: -3px; left: 20px; border: 3px solid #333; border-top: none; padding: 5px 15px; background: #fff; font-weight: bold; }
 
-        .classroom { 
-            display: grid; grid-template-columns: repeat(8, 110px); gap: 8px; 
-        }
+        .classroom { display: grid; grid-template-columns: repeat(8, 110px); gap: 8px; }
         
-        .seat { 
-            border: 1px solid #ddd; height: 95px; display: flex; flex-direction: column; 
-            justify-content: center; align-items: center; background: #fff; cursor: pointer;
-            transition: all 0.2s; position: relative;
-        }
+        .seat { border: 1px solid #ddd; height: 95px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #fff; cursor: pointer; transition: all 0.2s; position: relative; }
         .seat:hover { background: #f0f7ff; border-color: #007bff; z-index: 1; }
-        .seat.occupied { border-color: #333; }
+        .seat.occupied { border-color: #333; background: #fff; }
         
         .seat-num { position: absolute; top: 2px; left: 2px; font-size: 10px; color: #bbb; }
         .name { font-weight: bold; font-size: 15px; margin-top: 5px; }
@@ -36,11 +28,7 @@
         .en-name { font-size: 11px; color: #666; }
         .plus { font-size: 24px; color: #eee; }
 
-        /* 底部區域佈置 */
-        .bottom-area { 
-            display: flex; justify-content: space-between; align-items: center; 
-            margin-top: 25px; width: 100%; 
-        }
+        .bottom-area { display: flex; justify-content: space-between; align-items: center; margin-top: 25px; width: 100%; }
         .blackboard { flex-grow: 1; text-align: center; font-size: 20px; font-weight: bold; letter-spacing: 15px; border-top: 4px solid #333; padding-top: 10px; margin: 0 50px; }
         .computer { border: 2px dashed #333; padding: 10px; font-size: 12px; font-weight: bold; }
         .door-label { border: 3px solid #333; padding: 5px 15px; font-weight: bold; }
@@ -49,10 +37,10 @@
 <body>
 
     <h2>🏫 E1C 座位管理系統</h2>
-    <p style="color: #666;">💡 初始為空白：可先點擊格子固定位置，再點擊隨機排列填滿。</p>
+    <p style="color: #666;">💡 修正：手動指定座位後，隨機排列將不再產生多餘空白。</p>
 
     <div class="toolbar">
-        <button class="btn-random" onclick="fillRandom()">🎲 全體隨機排列 (填滿空位)</button>
+        <button class="btn-random" onclick="fillRandom()">🎲 其餘座位隨機排列</button>
         <button class="btn-reset" onclick="resetAll()">🧹 清空重設</button>
     </div>
 
@@ -71,7 +59,6 @@
             {id:"1114300121", n:"龔昱瑄", e:"Kelly"}, {id:"1114300122", n:"余沛容", e:"Melody"}, {id:"1114300123", n:"陳湘甯", e:"Ariel"}, {id:"1114300124", n:"林沁榆", e:"Amber"}, {id:"1114300125", n:"蕭羽彤", e:"Amelia"}, {id:"1114300126", n:"林奕帆", e:"Ivan"}, {id:"1114300127", n:"陳乙瑄", e:"Sharon"}, {id:"1114300128", n:"王漆妤", e:"Zoie"}, {id:"1114300129", n:"陳靜宜", e:"Luna"}, {id:"1114300130", n:"陳祉恩", e:"Bianca"}, {id:"1114300131", n:"陳又瑄", e:"Christy"}, {id:"1114300132", n:"賴宥璇", e:"Alina"}, {id:"1114300133", n:"陳玟慈", e:"Emily"}, {id:"1114300134", n:"江芯語", e:"Ina"}, {id:"1114300135", n:"陳世豪", e:"Howard"}, {id:"1114300136", n:"曾安岑", e:"Ann"}, {id:"1114300137", n:"賴瑾安", e:"Ashley"}, {id:"1114300138", n:"羅凱爾", e:"Mikayeel"}, {id:"1114300139", n:"辛俊文", e:"Jun-wen"}, {id:"1114300140", n:"黃靖晏", e:"Amber"}, {id:"1114300141", n:"林紫騏", e:"Nancy"}, {id:"1114300142", n:"吳霈瑜", e:"Yuri"}, {id:"1114300143", n:"許唯芯", e:"Una"}, {id:"1114300144", n:"遊芯語", e:"Abby"}, {id:"1114300145", n:"李易昌", e:"Jason"}, {id:"1114300146", n:"李婕禕", e:"Eve"}, {id:"1114300147", n:"李恩妮", e:"Miu Miu"}, {id:"1114300148", n:"林金姵", e:"Linda"}, {id:"1114300149", n:"陳可紜", e:"Amber"}, {id:"1114300151", n:"張雅玟", e:"Judy"}, {id:"1114300152", n:"牛昱翔", e:"Sean"}, {id:"1114300153", n:"陳以婕", e:"Emma"}, {id:"1114300154", n:"張鈺婕", e:"Wendy"}, {id:"1114300155", n:"朱雯芳", e:"Mia"}, {id:"1114300156", n:"連子甯", e:"Liliya"}, {id:"1114300157", n:"楊芷芹", e:"Alex"}, {id:"1114300158", n:"陳琦涵", e:"Hannah"}, {id:"1114300159", n:"陳冠宇", e:"Benson"}, {id:"1114300160", n:"陳漢庭", e:"Lina"}, {id:"1114300161", n:"張乙芹", e:"Irene"}, {id:"1114300162", n:"王妍菻", e:"Grace"}, {id:"1114300163", n:"曲孝寬", e:"Miller"}, {id:"1114300164", n:"王以倫", e:"Juan Jose"}, {id:"1114300165", n:"趙于嫻", e:"Abby"}, {id:"1114300166", n:"林宜樺", e:"Novalie"}, {id:"1114300167", n:"柯品瑀", e:"Pamela"}, {id:"1114300168", n:"卓彥均", e:"Cynthia"}, {id:"1114300169", n:"遊梁健雅", e:"Luna"}, {id:"1114300170", n:"張子瑜", e:"Yvonne"}, {id:"1114300171", n:"張湘翊", e:"Cecelia"}, {id:"1114300172", n:"廖靚薇", e:"Nicole"}, {id:"1114300173", n:"黃毓霏", e:"Lily"}, {id:"1114300174", n:"蔡悅琳", e:"Lina"}, {id:"1114300175", n:"陳宥卉", e:"Iris"}, {id:"1114300501", n:"賈伯珍", e:"Haein"}, {id:"1114300502", n:"鄭皓軒", e:"Suppakarn"}
         ];
 
-        // 初始設定 56 個位置為 null
         let seatMap = new Array(56).fill(null);
 
         function initGrid() {
@@ -81,18 +68,12 @@
                 const row = 7 - Math.floor(i / 8);
                 const col = (i % 8) + 1;
                 const student = seatMap[i];
-                
                 const seatDiv = document.createElement('div');
                 seatDiv.className = 'seat' + (student ? ' occupied' : '');
                 seatDiv.onclick = () => handleSeatClick(i);
-                
                 let content = `<div class="seat-num">${col}-${row}</div>`;
                 if (student) {
-                    content += `
-                        <div class="std-id">${student.id}</div>
-                        <div class="name">${student.n}</div>
-                        <div class="en-name">${student.e}</div>
-                    `;
+                    content += `<div class="std-id">${student.id}</div><div class="name">${student.n}</div><div class="en-name">${student.e}</div>`;
                 } else {
                     content += `<div class="plus">+</div>`;
                 }
@@ -103,7 +84,12 @@
 
         function handleSeatClick(index) {
             const query = prompt("請輸入同學姓名或學號末三碼：");
-            if (!query) return;
+            if (query === null) return;
+            if (query === "") { // 輸入空白代表清空該位
+                seatMap[index] = null;
+                initGrid();
+                return;
+            }
 
             const student = allStudents.find(s => s.n.includes(query) || s.id.endsWith(query));
             if (!student) {
@@ -111,28 +97,27 @@
                 return;
             }
 
-            // 如果該生已經在別的位置，先清除舊位
+            // 對調邏輯：如果這個人本來在別的位置，把那邊變空白
             const oldIdx = seatMap.findIndex(s => s && s.id === student.id);
             if (oldIdx !== -1) seatMap[oldIdx] = null;
             
-            // 如果點擊的位置原本有人，那個人會被暫時移除（因為我們現在是從空白開始填）
             seatMap[index] = student;
             initGrid();
         }
 
         function fillRandom() {
-            // 找出還沒被填入座位的同學
+            // 1. 先找出已經在位置上的人 ID
             const occupiedIds = seatMap.filter(s => s !== null).map(s => s.id);
-            let remainingStudents = allStudents.filter(s => !occupiedIds.includes(s.id));
-            
-            // 洗牌剩餘名單
-            remainingStudents.sort(() => Math.random() - 0.5);
+            // 2. 過濾出還沒入座的人
+            let pool = allStudents.filter(s => !occupiedIds.includes(s.id));
+            // 3. 洗牌
+            pool.sort(() => Math.random() - 0.5);
 
-            // 填入空白格子
-            let studentIdx = 0;
+            // 4. 只填入目前是 null 的位置
+            let poolIdx = 0;
             for (let i = 0; i < 56; i++) {
-                if (seatMap[i] === null && studentIdx < remainingStudents.length) {
-                    seatMap[i] = remainingStudents[studentIdx++];
+                if (seatMap[i] === null && poolIdx < pool.length) {
+                    seatMap[i] = pool[poolIdx++];
                 }
             }
             initGrid();
@@ -145,7 +130,6 @@
             }
         }
 
-        // 初始化顯示空白網格
         initGrid();
     </script>
 </body>
