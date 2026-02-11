@@ -2,59 +2,154 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E1C 座位管理系統 (修復版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>E1C 行動座位管理</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .toolbar { margin-bottom: 20px; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; gap: 10px; }
-        
-        button { padding: 10px 15px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s; }
-        .btn-random { background: #28a745; color: white; }
-        .btn-reset { background: #dc3545; color: white; }
-        button:hover { opacity: 0.8; }
+        :root {
+            --primary-color: #007bff;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --bg-color: #f8f9fa;
+        }
 
-        .classroom-container { background: #fff; padding: 40px; border: 3px solid #333; position: relative; min-width: 950px; }
-        .top-door { position: absolute; top: -3px; left: 20px; border: 3px solid #333; border-top: none; padding: 5px 15px; background: #fff; font-weight: bold; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-color); 
+            margin: 0;
+            padding: 10px;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+        }
 
-        .classroom { display: grid; grid-template-columns: repeat(8, 110px); gap: 8px; }
-        
-        .seat { border: 1px solid #ddd; height: 95px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #fff; cursor: pointer; transition: all 0.2s; position: relative; }
-        .seat:hover { background: #f0f7ff; border-color: #007bff; z-index: 1; }
-        .seat.occupied { border-color: #333; background: #fff; }
-        
-        .seat-num { position: absolute; top: 2px; left: 2px; font-size: 10px; color: #bbb; }
-        .name { font-weight: bold; font-size: 15px; margin-top: 5px; }
-        .std-id { font-size: 10px; color: #888; }
-        .en-name { font-size: 11px; color: #666; }
-        .plus { font-size: 24px; color: #eee; }
+        h2 { font-size: 1.5rem; margin: 10px 0; color: #333; }
+        .tip { font-size: 12px; color: #666; text-align: center; margin-bottom: 15px; }
 
-        .bottom-area { display: flex; justify-content: space-between; align-items: center; margin-top: 25px; width: 100%; }
-        .blackboard { flex-grow: 1; text-align: center; font-size: 20px; font-weight: bold; letter-spacing: 15px; border-top: 4px solid #333; padding-top: 10px; margin: 0 50px; }
-        .computer { border: 2px dashed #333; padding: 10px; font-size: 12px; font-weight: bold; }
-        .door-label { border: 3px solid #333; padding: 5px 15px; font-weight: bold; }
+        /* 工具列：手機上改為垂直排列或並排 */
+        .toolbar { 
+            width: 95%;
+            max-width: 500px;
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 20px;
+        }
+        
+        button { 
+            flex: 1;
+            padding: 12px 5px; 
+            font-size: 14px; 
+            cursor: pointer; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-random { background: var(--success-color); }
+        .btn-reset { background: var(--danger-color); }
+
+        /* 座位容器：手機版會根據螢幕寬度自動換行 */
+        .classroom-container { 
+            background: white; 
+            padding: 15px; 
+            border: 2px solid #333; 
+            position: relative; 
+            width: 95%;
+            box-sizing: border-box;
+            border-radius: 8px;
+        }
+
+        .top-door { 
+            position: absolute; top: -2px; left: 15px; 
+            border: 2px solid #333; border-top: none; 
+            padding: 2px 10px; background: white; 
+            font-size: 10px; font-weight: bold; 
+        }
+
+        /* 關鍵：使用 CSS Grid 自適應佈局 */
+        .classroom { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); /* 手機版預設 4 欄，點擊較方便 */
+            gap: 5px; 
+        }
+
+        /* 平板或大螢幕恢復 8 欄 */
+        @media (min-width: 600px) {
+            .classroom { grid-template-columns: repeat(8, 1fr); }
+            .classroom-container { width: auto; }
+        }
+        
+        .seat { 
+            border: 1px solid #ddd; 
+            aspect-ratio: 1 / 1; /* 保持正方形 */
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            background: #fff; 
+            border-radius: 4px;
+            position: relative;
+            padding: 2px;
+        }
+        .seat.occupied { border-color: #333; background: #fff; box-shadow: inset 0 0 5px rgba(0,0,0,0.05); }
+        
+        .seat-num { position: absolute; top: 2px; left: 2px; font-size: 8px; color: #bbb; }
+        .std-id { font-size: 8px; color: #999; transform: scale(0.9); }
+        .name { font-weight: bold; font-size: 13px; margin: 2px 0; }
+        .en-name { font-size: 9px; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .plus { font-size: 20px; color: #eee; }
+
+        .bottom-area { 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            margin-top: 20px; 
+            gap: 10px;
+        }
+        .blackboard { 
+            width: 80%;
+            text-align: center; 
+            font-size: 16px; 
+            font-weight: bold; 
+            letter-spacing: 5px; 
+            border-top: 3px solid #333; 
+            padding-top: 5px; 
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 10px;
+        }
+        .computer { border: 1px dashed #333; padding: 3px 8px; }
+        .door-label { border: 2px solid #333; padding: 3px 8px; }
     </style>
 </head>
 <body>
 
-    <h2>🏫 E1C 座位管理系統</h2>
-    <p style="color: #666;">💡 修正：手動指定座位後，隨機排列將不再產生多餘空白。</p>
+    <h2>🏫 E1C 排座助手</h2>
+    <div class="tip">手機操作：點擊格子預選，再按隨機排列</div>
 
     <div class="toolbar">
-        <button class="btn-random" onclick="fillRandom()">🎲 其餘座位隨機排列</button>
-        <button class="btn-reset" onclick="resetAll()">🧹 清空重設</button>
+        <button class="btn-random" onclick="fillRandom()">🎲 隨機排列</button>
+        <button class="btn-reset" onclick="resetAll()">🧹 清空</button>
     </div>
 
     <div class="classroom-container">
         <div class="top-door">DOOR</div>
         <div class="classroom" id="grid"></div>
         <div class="bottom-area">
-            <div class="door-label">DOOR</div>
             <div class="blackboard">BLACKBOARD</div>
-            <div class="computer">COMPUTER</div>
+            <div class="info-row">
+                <div class="door-label">DOOR</div>
+                <div class="computer">COMPUTER</div>
+            </div>
         </div>
     </div>
 
     <script>
+        // 學生資料維持不變
         const allStudents = [
             {id:"1114300121", n:"龔昱瑄", e:"Kelly"}, {id:"1114300122", n:"余沛容", e:"Melody"}, {id:"1114300123", n:"陳湘甯", e:"Ariel"}, {id:"1114300124", n:"林沁榆", e:"Amber"}, {id:"1114300125", n:"蕭羽彤", e:"Amelia"}, {id:"1114300126", n:"林奕帆", e:"Ivan"}, {id:"1114300127", n:"陳乙瑄", e:"Sharon"}, {id:"1114300128", n:"王漆妤", e:"Zoie"}, {id:"1114300129", n:"陳靜宜", e:"Luna"}, {id:"1114300130", n:"陳祉恩", e:"Bianca"}, {id:"1114300131", n:"陳又瑄", e:"Christy"}, {id:"1114300132", n:"賴宥璇", e:"Alina"}, {id:"1114300133", n:"陳玟慈", e:"Emily"}, {id:"1114300134", n:"江芯語", e:"Ina"}, {id:"1114300135", n:"陳世豪", e:"Howard"}, {id:"1114300136", n:"曾安岑", e:"Ann"}, {id:"1114300137", n:"賴瑾安", e:"Ashley"}, {id:"1114300138", n:"羅凱爾", e:"Mikayeel"}, {id:"1114300139", n:"辛俊文", e:"Jun-wen"}, {id:"1114300140", n:"黃靖晏", e:"Amber"}, {id:"1114300141", n:"林紫騏", e:"Nancy"}, {id:"1114300142", n:"吳霈瑜", e:"Yuri"}, {id:"1114300143", n:"許唯芯", e:"Una"}, {id:"1114300144", n:"遊芯語", e:"Abby"}, {id:"1114300145", n:"李易昌", e:"Jason"}, {id:"1114300146", n:"李婕禕", e:"Eve"}, {id:"1114300147", n:"李恩妮", e:"Miu Miu"}, {id:"1114300148", n:"林金姵", e:"Linda"}, {id:"1114300149", n:"陳可紜", e:"Amber"}, {id:"1114300151", n:"張雅玟", e:"Judy"}, {id:"1114300152", n:"牛昱翔", e:"Sean"}, {id:"1114300153", n:"陳以婕", e:"Emma"}, {id:"1114300154", n:"張鈺婕", e:"Wendy"}, {id:"1114300155", n:"朱雯芳", e:"Mia"}, {id:"1114300156", n:"連子甯", e:"Liliya"}, {id:"1114300157", n:"楊芷芹", e:"Alex"}, {id:"1114300158", n:"陳琦涵", e:"Hannah"}, {id:"1114300159", n:"陳冠宇", e:"Benson"}, {id:"1114300160", n:"陳漢庭", e:"Lina"}, {id:"1114300161", n:"張乙芹", e:"Irene"}, {id:"1114300162", n:"王妍菻", e:"Grace"}, {id:"1114300163", n:"曲孝寬", e:"Miller"}, {id:"1114300164", n:"王以倫", e:"Juan Jose"}, {id:"1114300165", n:"趙于嫻", e:"Abby"}, {id:"1114300166", n:"林宜樺", e:"Novalie"}, {id:"1114300167", n:"柯品瑀", e:"Pamela"}, {id:"1114300168", n:"卓彥均", e:"Cynthia"}, {id:"1114300169", n:"遊梁健雅", e:"Luna"}, {id:"1114300170", n:"張子瑜", e:"Yvonne"}, {id:"1114300171", n:"張湘翊", e:"Cecelia"}, {id:"1114300172", n:"廖靚薇", e:"Nicole"}, {id:"1114300173", n:"黃毓霏", e:"Lily"}, {id:"1114300174", n:"蔡悅琳", e:"Lina"}, {id:"1114300175", n:"陳宥卉", e:"Iris"}, {id:"1114300501", n:"賈伯珍", e:"Haein"}, {id:"1114300502", n:"鄭皓軒", e:"Suppakarn"}
         ];
@@ -71,9 +166,14 @@
                 const seatDiv = document.createElement('div');
                 seatDiv.className = 'seat' + (student ? ' occupied' : '');
                 seatDiv.onclick = () => handleSeatClick(i);
+                
                 let content = `<div class="seat-num">${col}-${row}</div>`;
                 if (student) {
-                    content += `<div class="std-id">${student.id}</div><div class="name">${student.n}</div><div class="en-name">${student.e}</div>`;
+                    content += `
+                        <div class="std-id">${student.id.slice(-3)}</div>
+                        <div class="name">${student.n}</div>
+                        <div class="en-name">${student.e}</div>
+                    `;
                 } else {
                     content += `<div class="plus">+</div>`;
                 }
@@ -83,9 +183,9 @@
         }
 
         function handleSeatClick(index) {
-            const query = prompt("請輸入同學姓名或學號末三碼：");
+            const query = prompt("輸入姓名或學號末三碼：");
             if (query === null) return;
-            if (query === "") { // 輸入空白代表清空該位
+            if (query === "") {
                 seatMap[index] = null;
                 initGrid();
                 return;
@@ -93,11 +193,10 @@
 
             const student = allStudents.find(s => s.n.includes(query) || s.id.endsWith(query));
             if (!student) {
-                alert("找不到這位同學！");
+                alert("找不到同學！");
                 return;
             }
 
-            // 對調邏輯：如果這個人本來在別的位置，把那邊變空白
             const oldIdx = seatMap.findIndex(s => s && s.id === student.id);
             if (oldIdx !== -1) seatMap[oldIdx] = null;
             
@@ -106,14 +205,10 @@
         }
 
         function fillRandom() {
-            // 1. 先找出已經在位置上的人 ID
             const occupiedIds = seatMap.filter(s => s !== null).map(s => s.id);
-            // 2. 過濾出還沒入座的人
             let pool = allStudents.filter(s => !occupiedIds.includes(s.id));
-            // 3. 洗牌
             pool.sort(() => Math.random() - 0.5);
 
-            // 4. 只填入目前是 null 的位置
             let poolIdx = 0;
             for (let i = 0; i < 56; i++) {
                 if (seatMap[i] === null && poolIdx < pool.length) {
@@ -124,7 +219,7 @@
         }
 
         function resetAll() {
-            if(confirm("確定要清空所有位置嗎？")) {
+            if(confirm("確定清空嗎？")) {
                 seatMap = new Array(56).fill(null);
                 initGrid();
             }
