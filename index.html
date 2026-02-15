@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=10.0, user-scalable=yes">
-    <title>E1C 座位點名系統 (縮放優化版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>E1C 座位點名系統 (直覺觸控版)</title>
     <style>
         :root {
             --primary: #2c3e50; --accent: #3498db; --success: #27ae60;
@@ -12,251 +12,241 @@
 
         body { 
             font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); 
-            display: flex; flex-direction: column; align-items: center; 
-            padding: 10px; margin: 0; height: 100vh; overflow: hidden;
+            margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden;
         }
         
-        .main-layout { display: flex; flex-direction: row; gap: 15px; width: 100%; height: 100%; align-items: flex-start; }
-
-        @media (max-width: 900px) {
-            .main-layout { flex-direction: column; }
-            .archive-panel { width: 100% !important; height: auto !important; position: static !important; }
-            .zoom-controls { bottom: 20px; right: 20px; }
-        }
+        /* 佈局架構 */
+        .top-nav { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 1000; }
+        .main-container { flex: 1; display: flex; position: relative; overflow: hidden; }
 
         /* 側欄 */
-        .archive-panel { width: 200px; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); flex-shrink: 0; max-height: 90vh; overflow-y: auto; }
-        .archive-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 5px; border-bottom: 1px solid #eee; font-size: 13px; cursor: pointer; }
+        .archive-panel { 
+            width: 200px; background: #fff; border-right: 1px solid #ddd; 
+            padding: 15px; overflow-y: auto; transition: transform 0.3s;
+            position: absolute; left: 0; top: 0; bottom: 0; z-index: 999;
+        }
+        .archive-panel.collapsed { transform: translateX(-100%); }
+        .archive-item { padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; }
 
-        /* 主區域 */
-        .content-area { flex-grow: 1; display: flex; flex-direction: column; height: 100%; width: 100%; position: relative; }
-        
-        .toolbar { 
-            background: white; padding: 10px; border-radius: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-            display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; justify-content: center;
+        /* 縮放畫布區域 */
+        .canvas-area { flex: 1; position: relative; background: #e9ecef; overflow: hidden; touch-action: none; }
+        .zoom-layer { 
+            position: absolute; transform-origin: 0 0; will-change: transform;
+            padding: 150px; /* 緩衝區 */
         }
 
-        /* 縮放核心容器 */
-        .zoom-viewport {
-            flex-grow: 1; width: 100%; border: 2px solid #ccc; border-radius: 8px;
-            background: #ddd; overflow: hidden; position: relative; cursor: grab;
-            touch-action: none; /* 禁用瀏覽器默認手勢以便我們自定義縮放 */
+        /* 座位表樣式 */
+        .classroom-container { 
+            background: #fff; padding: 50px 40px; border: 4px solid #333; 
+            min-width: 950px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
-        .zoom-viewport:active { cursor: grabbing; }
-
-        .zoom-content {
-            position: absolute; transform-origin: 0 0;
-            transition: transform 0.1s ease-out;
-            padding: 100px; /* 留白讓邊角好操作 */
-        }
-
-        /* 座位表樣式保持 */
-        .classroom-container { background: #fff; padding: 50px 40px; border: 4px solid #333; min-width: 950px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
         .classroom { display: grid; grid-template-columns: repeat(8, 115px); gap: 10px; }
-        .seat { border: 1px solid #ddd; height: 105px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #fff; position: relative; border-radius: 6px; }
+        .seat { 
+            border: 1px solid #ddd; height: 105px; background: #fff; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            position: relative; border-radius: 6px; box-sizing: border-box;
+        }
         .seat.absent { background: #ffebee !important; border-color: var(--danger) !important; }
         .seat.late { background: #fff9e6 !important; border-color: var(--warning) !important; }
-        
-        /* 縮放控制鈕 (懸浮) */
-        .zoom-controls {
-            position: absolute; bottom: 30px; right: 30px; display: flex; flex-direction: column; gap: 10px; z-index: 1000;
-        }
-        .zoom-btn {
-            width: 45px; height: 45px; border-radius: 50%; background: var(--primary); color: white;
-            border: none; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            display: flex; align-items: center; justify-content: center;
-        }
 
-        /* 其他原有樣式 */
+        /* UI 元件 */
+        .toolbar { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 900; display: flex; gap: 10px; pointer-events: none; }
+        .toolbar button { pointer-events: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        
+        .zoom-controls { position: absolute; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; }
+        .ui-btn { width: 45px; height: 45px; border-radius: 50%; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        .rollcall-popover {
+            position: absolute; inset: 0; background: rgba(255,255,255,0.95);
+            display: flex; flex-direction: column; padding: 5px; gap: 3px; z-index: 100;
+        }
+        .pop-btn { flex: 1; border: 1px solid #ddd; border-radius: 4px; font-weight: bold; font-size: 12px; }
+
+        /* 文字樣式 */
         .std-id { font-size: 10px; color: #999; }
         .name { font-weight: bold; font-size: 16px; }
         .en-name { font-size: 11px; color: #7f8c8d; }
-        .rollcall-popover {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.95); display: flex; flex-direction: column;
-            gap: 2px; padding: 4px; box-sizing: border-box; border-radius: 6px; z-index: 10;
-        }
-        .pop-btn { flex: 1; border: 1px solid #eee; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; }
         .hidden { display: none !important; }
-        .stats-bar { background: white; padding: 5px 15px; border-radius: 20px; margin-bottom: 5px; font-size: 13px; display: flex; gap: 10px; }
+        
+        .stats-badge { position: absolute; bottom: 25px; left: 25px; background: rgba(0,0,0,0.7); color: white; padding: 8px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; }
     </style>
 </head>
 <body onclick="closeAllPopovers(event)">
 
-    <div class="main-layout">
-        <div class="archive-panel">
-            <h3 style="margin-top:0; font-size:16px;">📁 存檔</h3>
+    <div class="top-nav">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <button onclick="document.querySelector('.archive-panel').classList.toggle('collapsed')" class="ui-btn" style="width:35px; height:35px; background:#666;">☰</button>
+            <span id="current-title" style="font-weight:bold;">🏫 E1C 系統</span>
+            <div id="mode-display" style="font-size:12px; padding:3px 10px; border-radius:10px; background:var(--primary); color:white;">排座模式</div>
+        </div>
+        <div class="toolbar" style="position:static; transform:none;">
+            <button class="ui-btn" style="width:auto; border-radius:20px; padding:0 15px; background:var(--success);" onclick="fillRandom()">🎲 隨機</button>
+            <button class="ui-btn" style="width:auto; border-radius:20px; padding:0 15px; background:var(--accent);" onclick="createNewArchive()">💾 存檔</button>
+            <button class="ui-btn" style="width:auto; border-radius:20px; padding:0 15px; background:#6c5ce7;" onclick="toggleMode()">🔄 切換模式</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="archive-panel collapsed">
+            <h4 style="margin:0 0 10px 0;">📁 歷史存檔</h4>
             <div id="archive-list"></div>
         </div>
 
-        <div class="content-area">
-            <div class="toolbar">
-                <div id="setup-btns" style="display:contents">
-                    <button style="background:var(--success);color:white" onclick="fillRandom()">🎲 隨機</button>
-                    <button style="background:var(--accent);color:white" onclick="createNewArchive()">💾 存檔</button>
-                </div>
-                <button style="background:#6c5ce7;color:white" onclick="toggleMode()">🔄 切換模式</button>
-                <button style="background:#333;color:white" onclick="window.print()">🖨️ 列印</button>
-            </div>
-
-            <div id="rollcall-stats" class="stats-bar hidden">
-                <span>應到:<b id="stat-total">0</b></span>
-                <span style="color:var(--success)">實到:<b id="stat-present">0</b></span>
-                <span style="color:var(--danger)">缺席:<b id="stat-absent">0</b></span>
-            </div>
-
-            <div class="zoom-viewport" id="viewport">
-                <div class="zoom-content" id="zoomContent">
-                    <div class="classroom-container">
-                        <div class="classroom" id="grid"></div>
-                        <div style="margin-top:30px; border-top:3px solid #333; text-align:center; font-weight:bold; letter-spacing:15px; font-size:20px; padding-top:10px;">BLACKBOARD</div>
-                    </div>
+        <div class="canvas-area" id="canvasArea">
+            <div class="zoom-layer" id="zoomLayer">
+                <div class="classroom-container">
+                    <div class="classroom" id="grid"></div>
+                    <div style="margin-top:30px; border-top:3px solid #333; text-align:center; font-weight:bold; letter-spacing:15px; font-size:20px; padding-top:10px;">BLACKBOARD</div>
                 </div>
             </div>
+        </div>
 
-            <div class="zoom-controls">
-                <button class="zoom-btn" onclick="adjustZoom(0.1)">+</button>
-                <button class="zoom-btn" onclick="adjustZoom(-0.1)">-</button>
-                <button class="zoom-btn" style="font-size:12px;" onclick="resetZoom()">重置</button>
-            </div>
+        <div class="stats-badge id="stats-badge">
+            應到:<span id="stat-total">0</span> | 缺席:<span id="stat-absent" style="color:var(--danger)">0</span>
+        </div>
+
+        <div class="zoom-controls">
+            <button class="ui-btn" onclick="zoomIn()">+</button>
+            <button class="ui-btn" onclick="zoomOut()">-</button>
+            <button class="ui-btn" style="font-size:10px;" onclick="resetView()">重置</button>
         </div>
     </div>
 
     <script>
-        // --- 核心縮放邏輯 ---
-        let scale = 0.6;
-        let posX = 0, posY = 0;
-        let isDragging = false;
-        let lastMouseX, lastMouseY;
-        const viewport = document.getElementById('viewport');
-        const content = document.getElementById('zoomContent');
-
-        // 滑鼠滾輪縮放
-        viewport.addEventListener('wheel', e => {
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? -0.05 : 0.05;
-            adjustZoom(delta);
-        }, { passive: false });
-
-        // 拖曳移動
-        viewport.addEventListener('mousedown', e => {
-            if(e.target.closest('.seat') || e.target.closest('.pop-btn')) return;
-            isDragging = true;
-            lastMouseX = e.clientX; lastMouseY = e.clientY;
-        });
-
-        window.addEventListener('mousemove', e => {
-            if (!isDragging) return;
-            posX += e.clientX - lastMouseX;
-            posY += e.clientY - lastMouseY;
-            lastMouseX = e.clientX; lastMouseY = e.clientY;
-            updateTransform();
-        });
-
-        window.addEventListener('mouseup', () => isDragging = false);
-
-        // 手機觸控縮放 (Pinch to Zoom)
-        let initialDist = 0;
-        viewport.addEventListener('touchstart', e => {
-            if (e.touches.length === 2) {
-                initialDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-            } else if (e.touches.length === 1) {
-                if(e.target.closest('.seat')) return;
-                isDragging = true;
-                lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY;
-            }
-        });
-
-        viewport.addEventListener('touchmove', e => {
-            if (e.touches.length === 2) {
-                const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-                const delta = (dist - initialDist) / 500;
-                adjustZoom(delta);
-                initialDist = dist;
-            } else if (e.touches.length === 1 && isDragging) {
-                posX += e.touches[0].clientX - lastMouseX;
-                posY += e.touches[0].clientY - lastMouseY;
-                lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY;
-                updateTransform();
-            }
-        }, { passive: false });
-
-        viewport.addEventListener('touchend', () => { isDragging = false; initialDist = 0; });
-
-        function adjustZoom(delta) {
-            scale = Math.min(Math.max(0.2, scale + delta), 2);
-            updateTransform();
-        }
-
-        function resetZoom() {
-            scale = 0.6; posX = 0; posY = 0; updateTransform();
-        }
-
-        function updateTransform() {
-            content.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
-        }
-
-        // --- 原有功能代碼 ---
+        // --- 學生數據與初始化 ---
         const allStudents = [
             {id:"1114300121", n:"龔昱瑄", e:"Kelly"}, {id:"1114300122", n:"余沛容", e:"Melody"}, {id:"1114300123", n:"陳湘甯", e:"Ariel"}, {id:"1114300124", n:"林沁榆", e:"Amber"}, {id:"1114300125", n:"蕭羽彤", e:"Amelia"}, {id:"1114300126", n:"林奕帆", e:"Ivan"}, {id:"1114300127", n:"陳乙瑄", e:"Sharon"}, {id:"1114300128", n:"王漆妤", e:"Zoie"}, {id:"1114300129", n:"陳靜宜", e:"Luna"}, {id:"1114300130", n:"陳祉恩", e:"Bianca"}, {id:"1114300131", n:"陳又瑄", e:"Christy"}, {id:"1114300132", n:"賴宥璇", e:"Alina"}, {id:"1114300133", n:"陳玟慈", e:"Emily"}, {id:"1114300134", n:"江芯語", e:"Ina"}, {id:"1114300135", n:"陳世豪", e:"Howard"}, {id:"1114300136", n:"曾安岑", e:"Ann"}, {id:"1114300137", n:"賴瑾安", e:"Ashley"}, {id:"1114300138", n:"羅凱爾", e:"Mikayeel"}, {id:"1114300139", n:"辛俊文", e:"Jun-wen"}, {id:"1114300140", n:"黃靖晏", e:"Amber"}, {id:"1114300141", n:"林紫騏", e:"Nancy"}, {id:"1114300142", n:"吳霈瑜", e:"Yuri"}, {id:"1114300143", n:"許唯芯", e:"Una"}, {id:"1114300144", n:"遊芯語", e:"Abby"}, {id:"1114300145", n:"遊梁健雅", e:"Luna"}, {id:"1114300146", n:"李婕禕", e:"Eve"}, {id:"1114300147", n:"李恩妮", e:"Miu Miu"}, {id:"1114300148", n:"林金姵", e:"Linda"}, {id:"1114300149", n:"陳可紜", e:"Amber"}, {id:"1114300151", n:"張雅玟", e:"Judy"}, {id:"1114300152", n:"牛昱翔", e:"Sean"}, {id:"1114300153", n:"陳以婕", e:"Emma"}, {id:"1114300154", n:"張鈺婕", e:"Wendy"}, {id:"1114300155", n:"朱雯芳", e:"Mia"}, {id:"1114300156", n:"連子甯", e:"Liliya"}, {id:"1114300157", n:"楊芷芹", e:"Alex"}, {id:"1114300158", n:"陳琦涵", e:"Hannah"}, {id:"1114300159", n:"陳冠宇", e:"Benson"}, {id:"1114300160", n:"陳漢庭", e:"Lina"}, {id:"1114300161", n:"張乙芹", e:"Irene"}, {id:"1114300162", n:"王妍菻", e:"Grace"}, {id:"1114300163", n:"曲孝寬", e:"Miller"}, {id:"1114300164", n:"王以倫", e:"Juan Jose"}, {id:"1114300165", n:"趙于嫻", e:"Abby"}, {id:"1114300166", n:"林宜樺", e:"Novalie"}, {id:"1114300167", n:"柯品瑀", e:"Pamela"}, {id:"1114300168", n:"卓彥均", e:"Cynthia"}, {id:"1114300169", n:"李易昌", e:"Jason"}, {id:"1114300170", n:"張子瑜", e:"Yvonne"}, {id:"1114300171", n:"張湘翊", e:"Cecelia"}, {id:"1114300172", n:"廖靚薇", e:"Nicole"}, {id:"1114300173", n:"黃毓霏", e:"Lily"}, {id:"1114300174", n:"蔡悅琳", e:"Lina"}, {id:"1114300175", n:"陳宥卉", e:"Iris"}, {id:"1114300501", n:"賈伯珍", e:"Haein"}, {id:"1114300502", n:"鄭皓軒", e:"Suppakarn"}
         ];
 
         let seatMap = new Array(56).fill(null);
-        let manualSeats = new Set();
         let rollCallStatus = new Array(56).fill('present');
         let archives = {};
         let isRollCallMode = false;
         let activePopoverIdx = null;
 
-        window.onload = () => {
-            const saved = localStorage.getItem('e1c_zoom_v1');
-            if (saved) { archives = JSON.parse(saved).archives || {}; updateArchiveList(); }
-            initGrid();
-            updateTransform();
-        };
+        // --- 超直覺縮放引擎 ---
+        let scale = 0.5, left = 0, topPos = 0;
+        const canvas = document.getElementById('canvasArea');
+        const layer = document.getElementById('zoomLayer');
 
-        function toggleMode() {
-            isRollCallMode = !isRollCallMode;
-            document.getElementById('setup-btns').classList.toggle('hidden', isRollCallMode);
-            document.getElementById('rollcall-stats').classList.toggle('hidden', !isRollCallMode);
-            initGrid();
+        function updateView() {
+            layer.style.transform = `translate(${left}px, ${topPos}px) scale(${scale})`;
         }
 
+        // 初始置中
+        window.onload = () => {
+            const saved = localStorage.getItem('e1c_pro_v1');
+            if (saved) { archives = JSON.parse(saved).archives || {}; renderArchives(); }
+            initGrid();
+            resetView();
+        };
+
+        function resetView() {
+            scale = canvas.clientWidth / 1100; // 自動適應寬度
+            left = 20; topPos = 20;
+            updateView();
+        }
+
+        function zoomIn() { scale += 0.1; updateView(); }
+        function zoomOut() { scale = Math.max(0.2, scale - 0.1); updateView(); }
+
+        // 拖拽與縮放手勢整合
+        let isPanning = false;
+        let startX, startY;
+
+        canvas.addEventListener('mousedown', startPan);
+        window.addEventListener('mousemove', pan);
+        window.addEventListener('mouseup', endPan);
+
+        canvas.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) startPan(e.touches[0]);
+            else if (e.touches.length === 2) startPinch(e);
+        }, {passive: false});
+
+        window.addEventListener('touchmove', e => {
+            if (e.touches.length === 1) pan(e.touches[0]);
+            else if (e.touches.length === 2) pinch(e);
+        }, {passive: false});
+
+        window.addEventListener('touchend', endPan);
+
+        function startPan(e) {
+            if (e.target.closest('.pop-btn')) return;
+            isPanning = true;
+            startX = e.clientX - left;
+            startY = e.clientY - topPos;
+        }
+
+        function pan(e) {
+            if (!isPanning) return;
+            left = e.clientX - startX;
+            topPos = e.clientY - startY;
+            updateView();
+        }
+
+        function endPan() { isPanning = false; }
+
+        let initialDist = 0;
+        function startPinch(e) {
+            initialDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+        }
+        function pinch(e) {
+            e.preventDefault();
+            const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            const delta = (dist - initialDist) / 200;
+            scale = Math.min(Math.max(0.15, scale + delta), 2);
+            initialDist = dist;
+            updateView();
+        }
+
+        // 滾輪縮放
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.05 : 0.05;
+            scale = Math.min(Math.max(0.15, scale + delta), 2);
+            updateView();
+        }, {passive: false});
+
+        // --- 功能邏輯 ---
         function initGrid() {
             const grid = document.getElementById('grid');
             grid.innerHTML = '';
             let total = 0, absent = 0;
-            for (let i = 0; i < 56; i++) {
-                const s = seatMap[i];
+            
+            seatMap.forEach((s, i) => {
                 const div = document.createElement('div');
                 div.className = 'seat' + (s && isRollCallMode ? ' ' + rollCallStatus[i] : '');
-                div.onclick = (e) => { e.stopPropagation(); handleSeatClick(i); };
                 
-                let content = `<div style="position:absolute;top:2px;left:3px;font-size:9px;color:#bbb">${(i%8)+1}-${7-Math.floor(i/8)}</div>`;
+                let html = `<div style="position:absolute;top:2px;left:3px;font-size:9px;color:#bbb">${(i%8)+1}-${7-Math.floor(i/8)}</div>`;
                 if (s) {
                     total++;
-                    content += `<div class="std-id">${s.id}</div><div class="name">${s.n}</div><div class="en-name">${s.e}</div>`;
+                    html += `<div class="std-id">${s.id}</div><div class="name">${s.n}</div><div class="en-name">${s.e}</div>`;
                     if (isRollCallMode && rollCallStatus[i] !== 'present') {
-                        content += `<div style="background:${rollCallStatus[i]==='absent'?'var(--danger)':'var(--warning)'};color:white;font-size:10px;padding:1px 5px;border-radius:4px;margin-top:2px">${rollCallStatus[i]==='absent'?'缺席':'遲到'}</div>`;
+                        html += `<div style="background:${rollCallStatus[i]==='absent'?'var(--danger)':'var(--warning)'};color:white;font-size:10px;padding:1px 5px;border-radius:4px;margin-top:2px">${rollCallStatus[i]==='absent'?'缺席':'遲到'}</div>`;
+                        if(rollCallStatus[i]==='absent') absent++;
                     }
                 } else {
-                    content += `<div style="font-size:24px;color:#eee">+</div>`;
+                    html += `<div style="font-size:24px;color:#eee">+</div>`;
                 }
 
                 if (isRollCallMode && activePopoverIdx === i) {
-                    content += `<div class="rollcall-popover" onclick="event.stopPropagation()">
+                    html += `<div class="rollcall-popover" onclick="event.stopPropagation()">
                         <button class="pop-btn" style="background:#eee" onclick="setRollStatus(${i},'present')">出席</button>
                         <button class="pop-btn" style="background:var(--danger);color:white" onclick="setRollStatus(${i},'absent')">缺席</button>
                         <button class="pop-btn" style="background:var(--warning)" onclick="setRollStatus(${i},'late')">遲到</button>
                     </div>`;
                 }
-                div.innerHTML = content;
+
+                div.innerHTML = html;
+                div.onclick = (e) => {
+                    // 如果正在拖動，則不觸發點擊
+                    if (Math.abs(left - (e.clientX - startX)) > 5) return;
+                    e.stopPropagation(); handleSeatClick(i);
+                };
                 grid.appendChild(div);
-                if(rollCallStatus[i] === 'absent') absent++;
-            }
+            });
             document.getElementById('stat-total').innerText = total;
             document.getElementById('stat-absent').innerText = absent;
-            document.getElementById('stat-present').innerText = total - absent;
         }
 
         function handleSeatClick(idx) {
@@ -265,12 +255,12 @@
                 activePopoverIdx = (activePopoverIdx === idx) ? null : idx;
                 initGrid();
             } else {
-                const q = prompt("姓名或學號末3碼：");
+                const q = prompt("輸入姓名或學號末3碼：");
                 if (q === null) return;
-                if (q === "") { seatMap[idx] = null; manualSeats.delete(idx); }
+                if (q === "") { seatMap[idx] = null; }
                 else {
                     const s = allStudents.find(x => x.n.includes(q) || x.id.endsWith(q));
-                    if (s) { seatMap[idx] = s; manualSeats.add(idx); }
+                    if (s) seatMap[idx] = s;
                 }
                 initGrid();
             }
@@ -278,26 +268,40 @@
 
         function setRollStatus(i, s) { rollCallStatus[i] = s; activePopoverIdx = null; initGrid(); }
         function closeAllPopovers() { if(activePopoverIdx!==null){activePopoverIdx=null; initGrid();} }
+        
+        function toggleMode() {
+            isRollCallMode = !isRollCallMode;
+            document.getElementById('mode-display').innerText = isRollCallMode ? "點名模式" : "排座模式";
+            document.getElementById('mode-display').style.background = isRollCallMode ? "var(--danger)" : "var(--primary)";
+            initGrid();
+        }
+
         function fillRandom() {
             let pool = allStudents.filter(s => !seatMap.includes(s)).sort(()=>Math.random()-0.5);
             let pIdx = 0;
-            for(let i=0; i<56; i++) if(!seatMap[i] && pIdx<pool.length) seatMap[i]=pool[pIdx++];
+            seatMap = seatMap.map(s => s || (pIdx < pool.length ? pool[pIdx++] : null));
             initGrid();
         }
+
         function createNewArchive() {
-            const n = prompt("存檔名稱：", `座位表_${new Date().toLocaleDateString()}`);
+            const n = prompt("名稱：", `存檔_${new Date().toLocaleDateString()}`);
             if(!n) return;
             archives[n] = { seatMap: [...seatMap], rollCallStatus: [...rollCallStatus] };
-            localStorage.setItem('e1c_zoom_v1', JSON.stringify({ archives }));
-            updateArchiveList();
+            localStorage.setItem('e1c_pro_v1', JSON.stringify({ archives }));
+            renderArchives();
         }
+
+        function renderArchives() {
+            document.getElementById('archive-list').innerHTML = Object.keys(archives).map(n => `
+                <div class="archive-item" onclick="loadArchive('${n}')"><span>${n}</span></div>
+            `).join('');
+        }
+
         function loadArchive(n) {
             seatMap = [...archives[n].seatMap];
             rollCallStatus = archives[n].rollCallStatus || new Array(56).fill('present');
             initGrid();
-        }
-        function updateArchiveList() {
-            document.getElementById('archive-list').innerHTML = Object.keys(archives).map(n => `<div class="archive-item" onclick="loadArchive('${n}')"><span>${n}</span></div>`).join('');
+            document.querySelector('.archive-panel').classList.add('collapsed');
         }
     </script>
 </body>
