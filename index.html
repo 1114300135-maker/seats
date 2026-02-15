@@ -3,93 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E1C 座位管理系統 (進階存檔版)</title>
+    <title>E1C 座位管理與快速點名系統</title>
     <style>
         :root {
             --primary: #2c3e50;
             --accent: #3498db;
             --success: #27ae60;
             --danger: #e74c3c;
-            --sidebar-bg: #ecf0f1;
+            --warning: #f1c40f;
+            --bg: #f4f7f6;
         }
 
-        body { font-family: "Microsoft JhengHei", sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
         
-        /* 佈局架構 */
-        .main-layout { display: flex; gap: 20px; max-width: 1300px; width: 100%; align-items: flex-start; }
+        .main-layout { display: flex; gap: 20px; max-width: 1400px; width: 100%; align-items: flex-start; }
         
-        /* 左側存檔清單 */
-        .archive-panel { 
-            width: 250px; background: white; padding: 20px; border-radius: 10px; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); height: fit-content; position: sticky; top: 20px;
-        }
+        /* 側欄存檔 */
+        .archive-panel { width: 220px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); position: sticky; top: 20px; }
         .archive-title { font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid var(--accent); padding-bottom: 5px; color: var(--primary); }
-        .archive-item { 
-            display: flex; justify-content: space-between; align-items: center; 
-            padding: 8px; border-bottom: 1px solid #eee; font-size: 13px; cursor: pointer; transition: 0.2s;
-        }
+        .archive-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #eee; font-size: 13px; cursor: pointer; }
         .archive-item:hover { background: #f0f7ff; }
-        .archive-name { flex-grow: 1; }
-        .del-btn { color: var(--danger); font-weight: bold; padding: 0 5px; cursor: pointer; border-radius: 3px; }
-        .del-btn:hover { background: #fee; }
+        .del-btn { color: var(--danger); font-weight: bold; padding: 0 5px; }
 
         /* 右側主區域 */
-        .content-area { flex-grow: 1; display: flex; flex-direction: column; align-items: center; }
-        
-        .toolbar { margin-bottom: 20px; background: white; padding: 15px 25px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; gap: 10px; }
-        
-        button { padding: 10px 18px; cursor: pointer; border: none; border-radius: 20px; font-weight: bold; transition: 0.3s; font-size: 14px; }
+        .content-area { flex-grow: 1; display: flex; flex-direction: column; align-items: center; position: relative; }
+        .header-info { display: flex; align-items: center; gap: 20px; margin-bottom: 15px; }
+        .mode-badge { padding: 5px 15px; border-radius: 20px; font-weight: bold; color: white; font-size: 14px; transition: 0.3s; }
+        .mode-setup { background: var(--primary); }
+        .mode-rollcall { background: var(--danger); box-shadow: 0 0 10px rgba(231, 76, 60, 0.3); }
+
+        .toolbar { margin-bottom: 20px; background: white; padding: 12px 25px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; gap: 10px; align-items: center; }
+        button { padding: 8px 15px; cursor: pointer; border: none; border-radius: 20px; font-weight: bold; transition: 0.3s; font-size: 14px; }
         .btn-random { background: var(--success); color: white; }
         .btn-save { background: var(--accent); color: white; }
-        .btn-reset { background: #95a5a6; color: white; }
+        .btn-mode { background: #6c5ce7; color: white; }
+
+        .stats-bar { display: flex; gap: 15px; margin-bottom: 15px; background: #fff; padding: 10px 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .stat-item { font-size: 14px; font-weight: bold; }
 
         /* 教室圖形 */
         .classroom-container { background: #fff; padding: 50px 40px 30px 40px; border: 3px solid #333; position: relative; min-width: 920px; }
-        .top-door { position: absolute; top: -3px; left: 20px; border: 3px solid #333; border-top: none; padding: 5px 15px; background: #fff; font-weight: bold; }
         .classroom { display: grid; grid-template-columns: repeat(8, 110px); gap: 8px; }
-        
-        .seat { border: 1px solid #ddd; height: 95px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #fff; cursor: pointer; transition: 0.2s; position: relative; border-radius: 4px; }
-        .seat:hover { border-color: var(--accent); background: #f0f7ff; }
-        .seat.occupied { border-color: #333; }
+        .seat { border: 1px solid #ddd; height: 95px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #fff; cursor: pointer; position: relative; border-radius: 4px; z-index: 1; }
         .seat.manual { border: 2px solid var(--accent); }
+        .seat:hover { border-color: var(--accent); }
         
-        .seat-num { position: absolute; top: 2px; left: 2px; font-size: 10px; color: #bbb; }
-        .name { font-weight: bold; font-size: 16px; margin-top: 5px; color: var(--primary); }
-        .std-id { font-size: 10px; color: #888; }
-        .en-name { font-size: 11px; color: #666; }
-        .plus { font-size: 24px; color: #eee; }
+        /* 點名顏色樣式 */
+        .seat.absent { background: #ffebee !important; border-color: var(--danger) !important; color: var(--danger); }
+        .seat.late { background: #fff9e6 !important; border-color: var(--warning) !important; color: #b08d00; }
+        .status-label { font-size: 10px; font-weight: bold; margin-top: 2px; padding: 2px 6px; border-radius: 10px; }
+        .absent .status-label { background: var(--danger); color: white; }
+        .late .status-label { background: var(--warning); color: black; }
 
+        /* 彈出選單 (Pop-over) */
+        .rollcall-popover {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; border: 1px solid #ccc; border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2); display: flex; flex-direction: column;
+            gap: 5px; padding: 8px; z-index: 100; min-width: 80px;
+        }
+        .pop-btn { padding: 6px 12px; font-size: 12px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; }
+        .pop-present { background: #eee; color: #333; }
+        .pop-absent { background: var(--danger); color: white; }
+        .pop-late { background: var(--warning); color: black; }
+
+        .seat-num { position: absolute; top: 2px; left: 2px; font-size: 10px; color: #bbb; }
+        .name { font-weight: bold; font-size: 16px; }
+        .plus { font-size: 24px; color: #eee; }
         .bottom-area { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; width: 100%; }
         .blackboard { flex-grow: 1; text-align: center; font-size: 22px; font-weight: bold; letter-spacing: 15px; border-top: 4px solid #333; padding-top: 10px; margin: 0 50px; }
+        
+        .hidden { display: none !important; }
     </style>
 </head>
-<body>
+<body onclick="closeAllPopovers(event)">
 
-    <h2 id="current-title">🏫 E1C 座位管理系統</h2>
+    <div class="header-info">
+        <h2 id="current-title" style="margin:0;">🏫 E1C 座位管理系統</h2>
+        <div id="mode-display" class="mode-badge mode-setup">排座模式</div>
+    </div>
 
     <div class="main-layout">
         <div class="archive-panel">
-            <div class="archive-title">📁 已保存的座位表</div>
-            <div id="archive-list">
-                <p style="color:#999; font-size: 12px;">尚無存檔...</p>
-            </div>
+            <div class="archive-title">📁 歷史存檔</div>
+            <div id="archive-list"></div>
         </div>
 
         <div class="content-area">
             <div class="toolbar">
-                <button class="btn-random" onclick="fillRandom()">🎲 隨機排列剩餘</button>
-                <button class="btn-save" onclick="createNewArchive()">💾 保存目前版本</button>
-                <button class="btn-reset" onclick="resetAll()">🧹 清空重設</button>
-                <button style="background:#333; color:white" onclick="window.print()">🖨️ 列印/PDF</button>
+                <div id="setup-btns">
+                    <button class="btn-random" onclick="fillRandom()">🎲 隨機排列</button>
+                    <button class="btn-save" onclick="createNewArchive()">💾 保存目前版本</button>
+                    <button class="btn-reset" onclick="resetAll()" style="background:#95a5a6; color:white;">🧹 重置</button>
+                </div>
+                <button class="btn-mode" onclick="toggleMode()">🔄 切換為點名模式</button>
+                <button style="background:#333; color:white" onclick="window.print()">🖨️ 列印</button>
+            </div>
+
+            <div id="rollcall-stats" class="stats-bar hidden">
+                <div class="stat-item">應到: <span id="stat-total">0</span></div>
+                <div class="stat-item" style="color:var(--success)">實到: <span id="stat-present">0</span></div>
+                <div class="stat-item" style="color:var(--danger)">缺席: <span id="stat-absent">0</span></div>
+                <div class="stat-item" style="color:var(--warning)">遲到: <span id="stat-late">0</span></div>
             </div>
 
             <div class="classroom-container">
-                <div class="top-door">DOOR</div>
                 <div class="classroom" id="grid"></div>
                 <div class="bottom-area">
-                    <div style="border: 2px solid #333; padding: 5px 15px; font-weight: bold;">DOOR</div>
                     <div class="blackboard">BLACKBOARD</div>
-                    <div style="border: 2px dashed #333; padding: 10px; font-size: 12px; font-weight: bold;">COMPUTER</div>
                 </div>
             </div>
         </div>
@@ -97,142 +118,160 @@
 
     <script>
         const allStudents = [
-            {id:"1114300121", n:"龔昱瑄", e:"Kelly"}, {id:"1114300122", n:"余沛容", e:"Melody"}, {id:"1114300123", n:"陳湘甯", e:"Ariel"}, {id:"1114300124", n:"林沁榆", e:"Amber"}, {id:"1114300125", n:"蕭羽彤", e:"Amelia"}, {id:"1114300126", n:"林奕帆", e:"Ivan"}, {id:"1114300127", n:"陳乙瑄", e:"Sharon"}, {id:"1114300128", n:"王漆妤", e:"Zoie"}, {id:"1114300129", n:"陳靜宜", e:"Luna"}, {id:"1114300130", n:"陳祉恩", e:"Bianca"}, {id:"1114300131", n:"陳又瑄", e:"Christy"}, {id:"1114300132", n:"賴宥璇", e:"Alina"}, {id:"1114300133", n:"陳玟慈", e:"Emily"}, {id:"1114300134", n:"江芯語", e:"Ina"}, {id:"1114300135", n:"陳世豪", e:"Howard"}, {id:"1114300136", n:"曾安岑", e:"Ann"}, {id:"1114300137", n:"賴瑾安", e:"Ashley"}, {id:"1114300138", n:"羅凱爾", e:"Mikayeel"}, {id:"1114300139", n:"辛俊文", e:"Jun-wen"}, {id:"1114300140", n:"黃靖晏", e:"Amber"}, {id:"1114300141", n:"林紫騏", e:"Nancy"}, {id:"1114300142", n:"吳霈瑜", e:"Yuri"}, {id:"1114300143", n:"許唯芯", e:"Una"}, {id:"1114300144", n:"遊芯語", e:"Abby"}, {id:"1114300145", n:"李易昌", e:"Jason"}, {id:"1114300146", n:"李婕禕", e:"Eve"}, {id:"1114300147", n:"李恩妮", e:"Miu Miu"}, {id:"1114300148", n:"林金姵", e:"Linda"}, {id:"1114300149", n:"陳可紜", e:"Amber"}, {id:"1114300151", n:"張雅玟", e:"Judy"}, {id:"1114300152", n:"牛昱翔", e:"Sean"}, {id:"1114300153", n:"陳以婕", e:"Emma"}, {id:"1114300154", n:"張鈺婕", e:"Wendy"}, {id:"1114300155", n:"朱雯芳", e:"Mia"}, {id:"1114300156", n:"連子甯", e:"Liliya"}, {id:"1114300157", n:"楊芷芹", e:"Alex"}, {id:"1114300158", n:"陳琦涵", e:"Hannah"}, {id:"1114300159", n:"陳冠宇", e:"Benson"}, {id:"1114300160", n:"陳漢庭", e:"Lina"}, {id:"1114300161", n:"張乙芹", e:"Irene"}, {id:"1114300162", n:"王妍菻", e:"Grace"}, {id:"1114300163", n:"曲孝寬", e:"Miller"}, {id:"1114300164", n:"王以倫", e:"Juan Jose"}, {id:"1114300165", n:"趙于嫻", e:"Abby"}, {id:"1114300166", n:"林宜樺", e:"Novalie"}, {id:"1114300167", n:"柯品瑀", e:"Pamela"}, {id:"1114300168", n:"卓彥均", e:"Cynthia"}, {id:"1114300169", n:"遊梁健雅", e:"Luna"}, {id:"1114300170", n:"張子瑜", e:"Yvonne"}, {id:"1114300171", n:"張湘翊", e:"Cecelia"}, {id:"1114300172", n:"廖靚薇", e:"Nicole"}, {id:"1114300173", n:"黃毓霏", e:"Lily"}, {id:"1114300174", n:"蔡悅琳", e:"Lina"}, {id:"1114300175", n:"陳宥卉", e:"Iris"}, {id:"1114300501", n:"賈伯珍", e:"Haein"}, {id:"1114300502", n:"鄭皓軒", e:"Suppakarn"}
+            {id:"1114300121", n:"龔昱瑄", e:"Kelly"}, {id:"1114300122", n:"余沛容", e:"Melody"}, {id:"1114300123", n:"陳湘甯", e:"Ariel"}, {id:"1114300124", n:"林沁榆", e:"Amber"}, {id:"1114300125", n:"蕭羽彤", e:"Amelia"}, {id:"1114300126", n:"林奕帆", e:"Ivan"}, {id:"1114300127", n:"陳乙瑄", e:"Sharon"}, {id:"1114300128", n:"王漆妤", e:"Zoie"}, {id:"1114300129", n:"陳靜宜", e:"Luna"}, {id:"1114300130", n:"陳祉恩", e:"Bianca"}, {id:"1114300131", n:"陳又瑄", e:"Christy"}, {id:"1114300132", n:"賴宥璇", e:"Alina"}, {id:"1114300133", n:"陳玟慈", e:"Emily"}, {id:"1114300134", n:"江芯語", e:"Ina"}, {id:"1114300135", n:"陳世豪", e:"Howard"}, {id:"1114300136", n:"曾安岑", e:"Ann"}, {id:"1114300137", n:"賴瑾安", e:"Ashley"}, {id:"1114300138", n:"羅凱爾", e:"Mikayeel"}, {id:"1114300139", n:"辛俊文", e:"Jun-wen"}, {id:"1114300140", n:"黃靖晏", e:"Amber"}, {id:"1114300141", n:"林紫騏", e:"Nancy"}, {id:"1114300142", n:"吳霈瑜", e:"Yuri"}, {id:"1114300143", n:"許唯芯", e:"Una"}, {id:"1114300144", n:"遊芯語", e:"Abby"}, {id:"1114300145", n:"遊梁健雅", e:"Luna"}, {id:"1114300146", n:"李婕禕", e:"Eve"}, {id:"1114300147", n:"李恩妮", e:"Miu Miu"}, {id:"1114300148", n:"林金姵", e:"Linda"}, {id:"1114300149", n:"陳可紜", e:"Amber"}, {id:"1114300151", n:"張雅玟", e:"Judy"}, {id:"1114300152", n:"牛昱翔", e:"Sean"}, {id:"1114300153", n:"陳以婕", e:"Emma"}, {id:"1114300154", n:"張鈺婕", e:"Wendy"}, {id:"1114300155", n:"朱雯芳", e:"Mia"}, {id:"1114300156", n:"連子甯", e:"Liliya"}, {id:"1114300157", n:"楊芷芹", e:"Alex"}, {id:"1114300158", n:"陳琦涵", e:"Hannah"}, {id:"1114300159", n:"陳冠宇", e:"Benson"}, {id:"1114300160", n:"陳漢庭", e:"Lina"}, {id:"1114300161", n:"張乙芹", e:"Irene"}, {id:"1114300162", n:"王妍菻", e:"Grace"}, {id:"1114300163", n:"曲孝寬", e:"Miller"}, {id:"1114300164", n:"王以倫", e:"Juan Jose"}, {id:"1114300165", n:"趙于嫻", e:"Abby"}, {id:"1114300166", n:"林宜樺", e:"Novalie"}, {id:"1114300167", n:"柯品瑀", e:"Pamela"}, {id:"1114300168", n:"卓彥均", e:"Cynthia"}, {id:"1114300169", n:"李易昌", e:"Jason"}, {id:"1114300170", n:"張子瑜", e:"Yvonne"}, {id:"1114300171", n:"張湘翊", e:"Cecelia"}, {id:"1114300172", n:"廖靚薇", e:"Nicole"}, {id:"1114300173", n:"黃毓霏", e:"Lily"}, {id:"1114300174", n:"蔡悅琳", e:"Lina"}, {id:"1114300175", n:"陳宥卉", e:"Iris"}, {id:"1114300501", n:"賈伯珍", e:"Haein"}, {id:"1114300502", n:"鄭皓軒", e:"Suppakarn"}
         ];
 
         let seatMap = new Array(56).fill(null);
         let manualSeats = new Set();
-        let archives = {}; // 格式: { "名稱": { seatMap, manualSeats } }
+        let rollCallStatus = new Array(56).fill('present');
+        let archives = {};
+        let isRollCallMode = false;
+        let activePopoverIdx = null;
 
-        // 初始化
         window.onload = () => {
-            const savedArchives = localStorage.getItem('e1c_archives');
-            if (savedArchives) {
-                archives = JSON.parse(savedArchives);
-                updateArchiveList();
-            }
+            const saved = localStorage.getItem('e1c_v4_data');
+            if (saved) { archives = JSON.parse(saved).archives || {}; updateArchiveList(); }
             initGrid();
         };
+
+        function toggleMode() {
+            isRollCallMode = !isRollCallMode;
+            activePopoverIdx = null;
+            document.getElementById('mode-display').innerText = isRollCallMode ? "點名模式" : "排座模式";
+            document.getElementById('mode-display').className = "mode-badge " + (isRollCallMode ? "mode-rollcall" : "mode-setup");
+            document.getElementById('setup-btns').classList.toggle('hidden', isRollCallMode);
+            document.getElementById('rollcall-stats').classList.toggle('hidden', !isRollCallMode);
+            document.querySelector('.btn-mode').innerText = isRollCallMode ? "🔄 切換為排座模式" : "🔄 切換為點名模式";
+            initGrid();
+        }
 
         function initGrid() {
             const grid = document.getElementById('grid');
             grid.innerHTML = '';
+            let total = 0, absent = 0, late = 0;
+
             for (let i = 0; i < 56; i++) {
-                const row = 7 - Math.floor(i / 8);
-                const col = (i % 8) + 1;
                 const student = seatMap[i];
                 const seatDiv = document.createElement('div');
-                seatDiv.className = 'seat' + (student ? ' occupied' : '') + (manualSeats.has(i) ? ' manual' : '');
-                seatDiv.onclick = () => handleSeatClick(i);
+                let classList = ['seat'];
                 
-                let content = `<div class="seat-num">${col}-${row}</div>`;
                 if (student) {
-                    content += `<div class="std-id">${student.id}</div><div class="name">${student.n}</div><div class="en-name">${student.e}</div>`;
+                    total++;
+                    if (isRollCallMode) {
+                        if (rollCallStatus[i] === 'absent') { classList.push('absent'); absent++; }
+                        if (rollCallStatus[i] === 'late') { classList.push('late'); late++; }
+                    } else if (manualSeats.has(i)) {
+                        classList.push('manual');
+                    }
+                }
+                
+                seatDiv.className = classList.join(' ');
+                seatDiv.onclick = (e) => { e.stopPropagation(); handleSeatClick(i); };
+                
+                let content = `<div class="seat-num">${(i%8)+1}-${7-Math.floor(i/8)}</div>`;
+                if (student) {
+                    content += `<div class="name">${student.n}</div>`;
+                    if (isRollCallMode && rollCallStatus[i] !== 'present') {
+                        content += `<div class="status-label">${rollCallStatus[i] === 'absent' ? '缺席' : '遲到'}</div>`;
+                    }
                 } else {
                     content += `<div class="plus">+</div>`;
                 }
+
+                // 如果是點名模式且選單開啟中
+                if (isRollCallMode && activePopoverIdx === i) {
+                    content += `
+                    <div class="rollcall-popover" onclick="event.stopPropagation()">
+                        <button class="pop-btn pop-present" onclick="setRollStatus(${i}, 'present')">出席</button>
+                        <button class="pop-btn pop-absent" onclick="setRollStatus(${i}, 'absent')">缺席</button>
+                        <button class="pop-btn pop-late" onclick="setRollStatus(${i}, 'late')">遲到</button>
+                    </div>`;
+                }
+
                 seatDiv.innerHTML = content;
                 grid.appendChild(seatDiv);
             }
+
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-absent').innerText = absent;
+            document.getElementById('stat-late').innerText = late;
+            document.getElementById('stat-present').innerText = total - absent;
         }
 
         function handleSeatClick(index) {
-            const query = prompt("輸入姓名或學號末三碼 (留空代表清空)：");
-            if (query === null) return;
-            if (query === "") {
-                seatMap[index] = null;
-                manualSeats.delete(index);
+            if (isRollCallMode) {
+                if (!seatMap[index]) return;
+                activePopoverIdx = (activePopoverIdx === index) ? null : index;
                 initGrid();
-                return;
+            } else {
+                const query = prompt("輸入姓名或學號末3碼：");
+                if (query === null) return;
+                if (query === "") {
+                    seatMap[index] = null; manualSeats.delete(index);
+                } else {
+                    const student = allStudents.find(s => s.n.includes(query) || s.id.endsWith(query));
+                    if (!student) return alert("找不到人");
+                    const oldIdx = seatMap.findIndex(s => s && s.id === student.id);
+                    if (oldIdx !== -1) seatMap[oldIdx] = null;
+                    seatMap[index] = student; manualSeats.add(index);
+                }
+                initGrid();
             }
-            const student = allStudents.find(s => s.n.includes(query) || s.id.endsWith(query));
-            if (!student) return alert("找不到人！");
-            
-            const oldIdx = seatMap.findIndex(s => s && s.id === student.id);
-            if (oldIdx !== -1) seatMap[oldIdx] = null;
-            
-            seatMap[index] = student;
-            manualSeats.add(index);
+        }
+
+        function setRollStatus(index, status) {
+            rollCallStatus[index] = status;
+            activePopoverIdx = null; // 選完關閉
             initGrid();
+        }
+
+        function closeAllPopovers() {
+            if (activePopoverIdx !== null) {
+                activePopoverIdx = null;
+                initGrid();
+            }
         }
 
         function fillRandom() {
             const occupiedIds = seatMap.filter(s => s !== null).map(s => s.id);
-            let pool = allStudents.filter(s => !occupiedIds.includes(s.id));
-            pool.sort(() => Math.random() - 0.5);
-
+            let pool = allStudents.filter(s => !occupiedIds.includes(s.id)).sort(() => Math.random() - 0.5);
             let poolIdx = 0;
             for (let i = 0; i < 56; i++) {
-                if (seatMap[i] === null && poolIdx < pool.length) {
-                    seatMap[i] = pool[poolIdx++];
-                }
+                if (seatMap[i] === null && poolIdx < pool.length) seatMap[i] = pool[poolIdx++];
             }
             initGrid();
         }
 
-        // --- 存檔管理系統 ---
-
         function createNewArchive() {
-            const name = prompt("請輸入此座位表的存檔名稱：", `座位表 ${new Date().toLocaleDateString()}`);
+            const name = prompt("存檔名稱：", `座位表_${new Date().toLocaleDateString()}`);
             if (!name) return;
-
-            archives[name] = {
-                seatMap: [...seatMap],
-                manualSeats: Array.from(manualSeats)
-            };
-            
-            saveArchivesToStorage();
-            updateArchiveList();
-            alert(`已存檔：${name}`);
+            archives[name] = { seatMap: [...seatMap], manualSeats: Array.from(manualSeats), rollCallStatus: [...rollCallStatus] };
+            saveToStorage(); updateArchiveList();
         }
 
         function loadArchive(name) {
-            if (!archives[name]) return;
             const data = archives[name];
-            seatMap = [...data.seatMap];
-            manualSeats = new Set(data.manualSeats);
-            document.getElementById('current-title').innerText = `🏫 E1C 座位表 - ${name}`;
-            initGrid();
+            seatMap = [...data.seatMap]; manualSeats = new Set(data.manualSeats);
+            rollCallStatus = data.rollCallStatus || new Array(56).fill('present');
+            document.getElementById('current-title').innerText = name; initGrid();
         }
 
-        function deleteArchive(name, event) {
-            event.stopPropagation(); // 防止點擊刪除按鈕時觸發加載
-            if (!confirm(`確定要刪除「${name}」這個存檔嗎？`)) return;
-            delete archives[name];
-            saveArchivesToStorage();
-            updateArchiveList();
+        function deleteArchive(name, e) {
+            e.stopPropagation(); if (confirm("刪除？")) { delete archives[name]; saveToStorage(); updateArchiveList(); }
         }
 
-        function saveArchivesToStorage() {
-            localStorage.setItem('e1c_archives', JSON.stringify(archives));
-        }
-
+        function saveToStorage() { localStorage.setItem('e1c_v4_data', JSON.stringify({ archives })); }
+        
         function updateArchiveList() {
-            const listDiv = document.getElementById('archive-list');
-            const keys = Object.keys(archives);
-            
-            if (keys.length === 0) {
-                listDiv.innerHTML = '<p style="color:#999; font-size: 12px;">尚無存檔...</p>';
-                return;
-            }
-
-            listDiv.innerHTML = keys.map(name => `
+            document.getElementById('archive-list').innerHTML = Object.keys(archives).map(name => `
                 <div class="archive-item" onclick="loadArchive('${name}')">
-                    <span class="archive-name">${name}</span>
-                    <span class="del-btn" onclick="deleteArchive('${name}', event)">×</span>
-                </div>
-            `).join('');
+                    <span>${name}</span><span class="del-btn" onclick="deleteArchive('${name}', event)">×</span>
+                </div>`).join('');
         }
 
         function resetAll() {
-            if (confirm("確定要重置目前的座位表嗎？(不會影響已保存的檔案)")) {
-                seatMap = new Array(56).fill(null);
-                manualSeats.clear();
-                document.getElementById('current-title').innerText = `🏫 E1C 座位管理系統`;
-                initGrid();
-            }
+            if (confirm("清空？")) { seatMap.fill(null); manualSeats.clear(); rollCallStatus.fill('present'); initGrid(); }
         }
-
     </script>
 </body>
 </html>
