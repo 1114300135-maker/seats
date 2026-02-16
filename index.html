@@ -1,135 +1,308 @@
-<script>
-/* ========= 進階縮放系統 ========= */
-let scale = 0.6;
-let posX = 0, posY = 0;
-let isDragging = false;
-let lastMouseX, lastMouseY;
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>E1C 座位點名系統 (直覺觸控版)</title>
+    <style>
+        :root {
+            --primary: #2c3e50; --accent: #3498db; --success: #27ae60;
+            --danger: #e74c3c; --warning: #f1c40f; --bg: #f4f7f6;
+        }
 
-const viewport = document.getElementById('viewport');
-const content = document.getElementById('zoomContent');
+        body { 
+            font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); 
+            margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+        }
+        
+        /* 佈局架構 */
+        .top-nav { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 1000; }
+        .main-container { flex: 1; display: flex; position: relative; overflow: hidden; }
 
-function updateTransform(){
-  content.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
-}
+        /* 側欄 */
+        .archive-panel { 
+            width: 200px; background: #fff; border-right: 1px solid #ddd; 
+            padding: 15px; overflow-y: auto; transition: transform 0.3s;
+            position: absolute; left: 0; top: 0; bottom: 0; z-index: 999;
+        }
+        .archive-panel.collapsed { transform: translateX(-100%); }
+        .archive-item { padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; }
 
-/* 以滑鼠或手指為中心縮放 */
-function adjustZoom(delta, cx, cy){
-  const rect = viewport.getBoundingClientRect();
-  const x = cx ?? rect.width/2;
-  const y = cy ?? rect.height/2;
-  const prev = scale;
+        /* 縮放畫布區域 */
+        .canvas-area { flex: 1; position: relative; background: #e9ecef; overflow: hidden; touch-action: none; }
+        .zoom-layer { 
+            position: absolute; transform-origin: 0 0; will-change: transform;
+            padding: 150px; /* 緩衝區 */
+        }
 
-  scale = Math.min(Math.max(0.2, scale + delta), 2);
+        /* 座位表樣式 */
+        .classroom-container { 
+            background: #fff; padding: 50px 40px; border: 4px solid #333; 
+            min-width: 950px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .classroom { display: grid; grid-template-columns: repeat(8, 115px); gap: 10px; }
+        .seat { 
+            border: 1px solid #ddd; height: 105px; background: #fff; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            position: relative; border-radius: 6px; box-sizing: border-box;
+        }
+        .seat.absent { background: #ffebee !important; border-color: var(--danger) !important; }
+        .seat.late { background: #fff9e6 !important; border-color: var(--warning) !important; }
 
-  posX = x - (x - posX) * (scale / prev);
-  posY = y - (y - posY) * (scale / prev);
+        /* UI 元件 */
+        .toolbar { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 900; display: flex; gap: 10px; pointer-events: none; }
+        .toolbar button { pointer-events: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        
+        .zoom-controls { position: absolute; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; }
+        .ui-btn { width: 45px; height: 45px; border-radius: 50%; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-  updateTransform();
-}
+        .rollcall-popover {
+            position: absolute; inset: 0; background: rgba(255,255,255,0.95);
+            display: flex; flex-direction: column; padding: 5px; gap: 3px; z-index: 100;
+        }
+        .pop-btn { flex: 1; border: 1px solid #ddd; border-radius: 4px; font-weight: bold; font-size: 12px; }
 
-/* 滑鼠滾輪 */
-viewport.addEventListener("wheel", e=>{
-  e.preventDefault();
-  adjustZoom(e.deltaY > 0 ? -0.1 : 0.1, e.offsetX, e.offsetY);
-},{passive:false});
+        /* 文字樣式 */
+        .std-id { font-size: 10px; color: #999; }
+        .name { font-weight: bold; font-size: 16px; }
+        .en-name { font-size: 11px; color: #7f8c8d; }
+        .hidden { display: none !important; }
+        
+        .stats-badge { position: absolute; bottom: 25px; left: 25px; background: rgba(0,0,0,0.7); color: white; padding: 8px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; }
+    </style>
+</head>
+<body onclick="closeAllPopovers(event)">
 
-/* 拖曳 */
-viewport.addEventListener("mousedown", e=>{
-  if(e.target.closest(".seat")||e.target.closest(".pop-btn")) return;
-  isDragging=true;
-  content.style.transition="none";
-  lastMouseX=e.clientX; lastMouseY=e.clientY;
-});
-window.addEventListener("mousemove", e=>{
-  if(!isDragging) return;
-  posX+=e.clientX-lastMouseX;
-  posY+=e.clientY-lastMouseY;
-  lastMouseX=e.clientX; lastMouseY=e.clientY;
-  updateTransform();
-});
-window.addEventListener("mouseup", ()=>{
-  isDragging=false;
-  content.style.transition="transform .1s ease-out";
-});
+    <div class="top-nav">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <button onclick="document.querySelector('.archive-panel').classList.toggle('collapsed')" class="ui-btn" style="width:35px; height:35px; background:#666;">☰</button>
+            <span id="current-title" style="font-weight:bold;">🏫 E1C 系統</span>
+            <div id="mode-display" style="font-size:12px; padding:3px 10px; border-radius:10px; background:var(--primary); color:white;">排座模式</div>
+        </div>
+        <div class="toolbar" style="position:static; transform:none;">
+            <button class="ui-btn" style="width:auto; border-radius:20px; padding:0 15px; background:var(--success);" onclick="fillRandom()">🎲 隨機</button>
+            <button class="ui-btn" style="width:auto; border-radius:20px; padding:0 15px; background:var(--accent);" onclick="createNewArchive()">💾 存檔</button>
+            <button class="ui-btn" style="width:auto; border-radius:20px; padding:0 15px; background:#6c5ce7;" onclick="toggleMode()">🔄 切換模式</button>
+        </div>
+    </div>
 
-/* 觸控 */
-let initialDist=0;
-viewport.addEventListener("touchstart", e=>{
-  if(e.touches.length===2){
-    initialDist=Math.hypot(
-      e.touches[0].pageX-e.touches[1].pageX,
-      e.touches[0].pageY-e.touches[1].pageY
-    );
-  } else {
-    isDragging=true;
-    lastMouseX=e.touches[0].clientX;
-    lastMouseY=e.touches[0].clientY;
-  }
-},{passive:false});
+    <div class="main-container">
+        <div class="archive-panel collapsed">
+            <h4 style="margin:0 0 10px 0;">📁 歷史存檔</h4>
+            <div id="archive-list"></div>
+        </div>
 
-viewport.addEventListener("touchmove", e=>{
-  if(e.touches.length===2){
-    const d=Math.hypot(
-      e.touches[0].pageX-e.touches[1].pageX,
-      e.touches[0].pageY-e.touches[1].pageY
-    );
-    adjustZoom((d-initialDist)/300,
-      (e.touches[0].clientX+e.touches[1].clientX)/2,
-      (e.touches[0].clientY+e.touches[1].clientY)/2
-    );
-    initialDist=d;
-  } else if(isDragging){
-    posX+=e.touches[0].clientX-lastMouseX;
-    posY+=e.touches[0].clientY-lastMouseY;
-    lastMouseX=e.touches[0].clientX;
-    lastMouseY=e.touches[0].clientY;
-    updateTransform();
-  }
-},{passive:false});
+        <div class="canvas-area" id="canvasArea">
+            <div class="zoom-layer" id="zoomLayer">
+                <div class="classroom-container">
+                    <div class="classroom" id="grid"></div>
+                    <div style="margin-top:30px; border-top:3px solid #333; text-align:center; font-weight:bold; letter-spacing:15px; font-size:20px; padding-top:10px;">BLACKBOARD</div>
+                </div>
+            </div>
+        </div>
 
-viewport.addEventListener("touchend", ()=>{isDragging=false;});
+        <div class="stats-badge id="stats-badge">
+            應到:<span id="stat-total">0</span> | 缺席:<span id="stat-absent" style="color:var(--danger)">0</span>
+        </div>
 
-/* ========= 原系統 ========= */
+        <div class="zoom-controls">
+            <button class="ui-btn" onclick="zoomIn()">+</button>
+            <button class="ui-btn" onclick="zoomOut()">-</button>
+            <button class="ui-btn" style="font-size:10px;" onclick="resetView()">重置</button>
+        </div>
+    </div>
 
-let seatMap = new Array(56).fill(null);
-let rollCallStatus = new Array(56).fill("present");
-let archives = {};
-let isRollCallMode = false;
-let activePopoverIdx = null;
+    <script>
+        // --- 學生數據與初始化 ---
+        const allStudents = [
+            {id:"1114300121", n:"龔昱瑄", e:"Kelly"}, {id:"1114300122", n:"余沛容", e:"Melody"}, {id:"1114300123", n:"陳湘甯", e:"Ariel"}, {id:"1114300124", n:"林沁榆", e:"Amber"}, {id:"1114300125", n:"蕭羽彤", e:"Amelia"}, {id:"1114300126", n:"林奕帆", e:"Ivan"}, {id:"1114300127", n:"陳乙瑄", e:"Sharon"}, {id:"1114300128", n:"王漆妤", e:"Zoie"}, {id:"1114300129", n:"陳靜宜", e:"Luna"}, {id:"1114300130", n:"陳祉恩", e:"Bianca"}, {id:"1114300131", n:"陳又瑄", e:"Christy"}, {id:"1114300132", n:"賴宥璇", e:"Alina"}, {id:"1114300133", n:"陳玟慈", e:"Emily"}, {id:"1114300134", n:"江芯語", e:"Ina"}, {id:"1114300135", n:"陳世豪", e:"Howard"}, {id:"1114300136", n:"曾安岑", e:"Ann"}, {id:"1114300137", n:"賴瑾安", e:"Ashley"}, {id:"1114300138", n:"羅凱爾", e:"Mikayeel"}, {id:"1114300139", n:"辛俊文", e:"Jun-wen"}, {id:"1114300140", n:"黃靖晏", e:"Amber"}, {id:"1114300141", n:"林紫騏", e:"Nancy"}, {id:"1114300142", n:"吳霈瑜", e:"Yuri"}, {id:"1114300143", n:"許唯芯", e:"Una"}, {id:"1114300144", n:"遊芯語", e:"Abby"}, {id:"1114300145", n:"遊梁健雅", e:"Luna"}, {id:"1114300146", n:"李婕禕", e:"Eve"}, {id:"1114300147", n:"李恩妮", e:"Miu Miu"}, {id:"1114300148", n:"林金姵", e:"Linda"}, {id:"1114300149", n:"陳可紜", e:"Amber"}, {id:"1114300151", n:"張雅玟", e:"Judy"}, {id:"1114300152", n:"牛昱翔", e:"Sean"}, {id:"1114300153", n:"陳以婕", e:"Emma"}, {id:"1114300154", n:"張鈺婕", e:"Wendy"}, {id:"1114300155", n:"朱雯芳", e:"Mia"}, {id:"1114300156", n:"連子甯", e:"Liliya"}, {id:"1114300157", n:"楊芷芹", e:"Alex"}, {id:"1114300158", n:"陳琦涵", e:"Hannah"}, {id:"1114300159", n:"陳冠宇", e:"Benson"}, {id:"1114300160", n:"陳漢庭", e:"Lina"}, {id:"1114300161", n:"張乙芹", e:"Irene"}, {id:"1114300162", n:"王妍菻", e:"Grace"}, {id:"1114300163", n:"曲孝寬", e:"Miller"}, {id:"1114300164", n:"王以倫", e:"Juan Jose"}, {id:"1114300165", n:"趙于嫻", e:"Abby"}, {id:"1114300166", n:"林宜樺", e:"Novalie"}, {id:"1114300167", n:"柯品瑀", e:"Pamela"}, {id:"1114300168", n:"卓彥均", e:"Cynthia"}, {id:"1114300169", n:"李易昌", e:"Jason"}, {id:"1114300170", n:"張子瑜", e:"Yvonne"}, {id:"1114300171", n:"張湘翊", e:"Cecelia"}, {id:"1114300172", n:"廖靚薇", e:"Nicole"}, {id:"1114300173", n:"黃毓霏", e:"Lily"}, {id:"1114300174", n:"蔡悅琳", e:"Lina"}, {id:"1114300175", n:"陳宥卉", e:"Iris"}, {id:"1114300501", n:"賈伯珍", e:"Haein"}, {id:"1114300502", n:"鄭皓軒", e:"Suppakarn"}
+        ];
 
-/* 載入存檔 */
-window.onload = ()=>{
-  const saved = localStorage.getItem("e1c_zoom_v2");
-  if(saved) archives = JSON.parse(saved);
-  updateArchiveList();
-  initGrid();
-  updateTransform();
-};
+        let seatMap = new Array(56).fill(null);
+        let rollCallStatus = new Array(56).fill('present');
+        let archives = {};
+        let isRollCallMode = false;
+        let activePopoverIdx = null;
 
-/* 存檔升級版 */
-function createNewArchive(){
-  const n = prompt("存檔名稱",`座位表_${new Date().toLocaleDateString()}`);
-  if(!n) return;
-  archives[n]={
-    date:new Date().toISOString(),
-    seatMap:[...seatMap],
-    rollCallStatus:[...rollCallStatus]
-  };
-  localStorage.setItem("e1c_zoom_v2",JSON.stringify(archives));
-  updateArchiveList();
-}
+        // --- 超直覺縮放引擎 ---
+        let scale = 0.5, left = 0, topPos = 0;
+        const canvas = document.getElementById('canvasArea');
+        const layer = document.getElementById('zoomLayer');
 
-/* 出席率 */
-function getStudentStats(id){
-  let total=0,present=0;
-  for(const a of Object.values(archives)){
-    a.seatMap.forEach((s,i)=>{
-      if(s&&s.id===id){
-        total++;
-        if(a.rollCallStatus[i]==="present") present++;
-      }
-    });
-  }
-  return total?((present/total)*100).toFixed(1):"—";
-}
-</script>
+        function updateView() {
+            layer.style.transform = `translate(${left}px, ${topPos}px) scale(${scale})`;
+        }
+
+        // 初始置中
+        window.onload = () => {
+            const saved = localStorage.getItem('e1c_pro_v1');
+            if (saved) { archives = JSON.parse(saved).archives || {}; renderArchives(); }
+            initGrid();
+            resetView();
+        };
+
+        function resetView() {
+            scale = canvas.clientWidth / 1100; // 自動適應寬度
+            left = 20; topPos = 20;
+            updateView();
+        }
+
+        function zoomIn() { scale += 0.1; updateView(); }
+        function zoomOut() { scale = Math.max(0.2, scale - 0.1); updateView(); }
+
+        // 拖拽與縮放手勢整合
+        let isPanning = false;
+        let startX, startY;
+
+        canvas.addEventListener('mousedown', startPan);
+        window.addEventListener('mousemove', pan);
+        window.addEventListener('mouseup', endPan);
+
+        canvas.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) startPan(e.touches[0]);
+            else if (e.touches.length === 2) startPinch(e);
+        }, {passive: false});
+
+        window.addEventListener('touchmove', e => {
+            if (e.touches.length === 1) pan(e.touches[0]);
+            else if (e.touches.length === 2) pinch(e);
+        }, {passive: false});
+
+        window.addEventListener('touchend', endPan);
+
+        function startPan(e) {
+            if (e.target.closest('.pop-btn')) return;
+            isPanning = true;
+            startX = e.clientX - left;
+            startY = e.clientY - topPos;
+        }
+
+        function pan(e) {
+            if (!isPanning) return;
+            left = e.clientX - startX;
+            topPos = e.clientY - startY;
+            updateView();
+        }
+
+        function endPan() { isPanning = false; }
+
+        let initialDist = 0;
+        function startPinch(e) {
+            initialDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+        }
+        function pinch(e) {
+            e.preventDefault();
+            const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            const delta = (dist - initialDist) / 200;
+            scale = Math.min(Math.max(0.15, scale + delta), 2);
+            initialDist = dist;
+            updateView();
+        }
+
+        // 滾輪縮放
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.05 : 0.05;
+            scale = Math.min(Math.max(0.15, scale + delta), 2);
+            updateView();
+        }, {passive: false});
+
+        // --- 功能邏輯 ---
+        function initGrid() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            let total = 0, absent = 0;
+            
+            seatMap.forEach((s, i) => {
+                const div = document.createElement('div');
+                div.className = 'seat' + (s && isRollCallMode ? ' ' + rollCallStatus[i] : '');
+                
+                let html = `<div style="position:absolute;top:2px;left:3px;font-size:9px;color:#bbb">${(i%8)+1}-${7-Math.floor(i/8)}</div>`;
+                if (s) {
+                    total++;
+                    html += `<div class="std-id">${s.id}</div><div class="name">${s.n}</div><div class="en-name">${s.e}</div>`;
+                    if (isRollCallMode && rollCallStatus[i] !== 'present') {
+                        html += `<div style="background:${rollCallStatus[i]==='absent'?'var(--danger)':'var(--warning)'};color:white;font-size:10px;padding:1px 5px;border-radius:4px;margin-top:2px">${rollCallStatus[i]==='absent'?'缺席':'遲到'}</div>`;
+                        if(rollCallStatus[i]==='absent') absent++;
+                    }
+                } else {
+                    html += `<div style="font-size:24px;color:#eee">+</div>`;
+                }
+
+                if (isRollCallMode && activePopoverIdx === i) {
+                    html += `<div class="rollcall-popover" onclick="event.stopPropagation()">
+                        <button class="pop-btn" style="background:#eee" onclick="setRollStatus(${i},'present')">出席</button>
+                        <button class="pop-btn" style="background:var(--danger);color:white" onclick="setRollStatus(${i},'absent')">缺席</button>
+                        <button class="pop-btn" style="background:var(--warning)" onclick="setRollStatus(${i},'late')">遲到</button>
+                    </div>`;
+                }
+
+                div.innerHTML = html;
+                div.onclick = (e) => {
+                    // 如果正在拖動，則不觸發點擊
+                    if (Math.abs(left - (e.clientX - startX)) > 5) return;
+                    e.stopPropagation(); handleSeatClick(i);
+                };
+                grid.appendChild(div);
+            });
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-absent').innerText = absent;
+        }
+
+        function handleSeatClick(idx) {
+            if (isRollCallMode) {
+                if (!seatMap[idx]) return;
+                activePopoverIdx = (activePopoverIdx === idx) ? null : idx;
+                initGrid();
+            } else {
+                const q = prompt("輸入姓名或學號末3碼：");
+                if (q === null) return;
+                if (q === "") { seatMap[idx] = null; }
+                else {
+                    const s = allStudents.find(x => x.n.includes(q) || x.id.endsWith(q));
+                    if (s) seatMap[idx] = s;
+                }
+                initGrid();
+            }
+        }
+
+        function setRollStatus(i, s) { rollCallStatus[i] = s; activePopoverIdx = null; initGrid(); }
+        function closeAllPopovers() { if(activePopoverIdx!==null){activePopoverIdx=null; initGrid();} }
+        
+        function toggleMode() {
+            isRollCallMode = !isRollCallMode;
+            document.getElementById('mode-display').innerText = isRollCallMode ? "點名模式" : "排座模式";
+            document.getElementById('mode-display').style.background = isRollCallMode ? "var(--danger)" : "var(--primary)";
+            initGrid();
+        }
+
+        function fillRandom() {
+            let pool = allStudents.filter(s => !seatMap.includes(s)).sort(()=>Math.random()-0.5);
+            let pIdx = 0;
+            seatMap = seatMap.map(s => s || (pIdx < pool.length ? pool[pIdx++] : null));
+            initGrid();
+        }
+
+        function createNewArchive() {
+            const n = prompt("名稱：", `存檔_${new Date().toLocaleDateString()}`);
+            if(!n) return;
+            archives[n] = { seatMap: [...seatMap], rollCallStatus: [...rollCallStatus] };
+            localStorage.setItem('e1c_pro_v1', JSON.stringify({ archives }));
+            renderArchives();
+        }
+
+        function renderArchives() {
+            document.getElementById('archive-list').innerHTML = Object.keys(archives).map(n => `
+                <div class="archive-item" onclick="loadArchive('${n}')"><span>${n}</span></div>
+            `).join('');
+        }
+
+        function loadArchive(n) {
+            seatMap = [...archives[n].seatMap];
+            rollCallStatus = archives[n].rollCallStatus || new Array(56).fill('present');
+            initGrid();
+            document.querySelector('.archive-panel').classList.add('collapsed');
+        }
+    </script>
+</body>
+</html>
