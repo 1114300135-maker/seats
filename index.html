@@ -3,47 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>行動點名簿</title>
+    <title>E1C 點名系統 (完整學號版)</title>
     <style>
         :root {
             --present-bg: #d4edda; --present-text: #155724;
             --absent-bg: #f8d7da; --absent-text: #721c24;
             --normal-bg: #ffffff;
         }
-        body { font-family: -apple-system, system-ui, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; padding-bottom: 50px; }
         
-        .header { position: sticky; top: 10px; z-index: 100; width: 100%; max-width: 500px; background: #343a40; color: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); margin-bottom: 20px; text-align: center; }
+        .header { position: sticky; top: 0; z-index: 100; width: 100%; max-width: 500px; background: #343a40; color: white; padding: 15px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); margin-bottom: 20px; text-align: center; box-sizing: border-box; }
         .stats { display: flex; justify-content: space-around; margin-top: 10px; font-size: 14px; }
         .stats span { font-weight: bold; font-size: 18px; color: #ffc107; }
 
-        .btn-group { display: flex; gap: 10px; width: 100%; max-width: 500px; margin-bottom: 20px; }
-        button { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; }
-        .btn-reset { background: #6c757d; }
-        .btn-all-p { background: #28a745; }
+        .btn-group { display: flex; gap: 10px; width: 100%; max-width: 500px; margin-bottom: 15px; }
+        button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-reset { background: #6c757d; color: white; }
+        .btn-all-p { background: #28a745; color: white; }
+        .btn-export { background: #007bff; color: white; width: 100%; max-width: 500px; margin-top: 20px; }
 
         .student-list { width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 8px; }
         .student-card { 
             display: flex; align-items: center; justify-content: space-between;
             padding: 15px; background: var(--normal-bg); border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.2s; border: 1px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #ddd;
         }
         .student-info { display: flex; flex-direction: column; }
-        .student-id { font-size: 12px; color: #888; margin-bottom: 2px; }
+        .student-id { font-size: 12px; color: #888; }
         .student-name { font-size: 18px; font-weight: bold; }
         
-        /* 狀態顏色 */
         .student-card.present { background: var(--present-bg); color: var(--present-text); border-color: #c3e6cb; }
         .student-card.absent { background: var(--absent-bg); color: var(--absent-text); border-color: #f5c6cb; }
         
-        .status-label { font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 5px; background: #eee; color: #666; }
-        .present .status-label { background: #28a745; color: white; }
-        .absent .status-label { background: #dc3545; color: white; }
+        .export-area { width: 100%; max-width: 500px; margin-top: 20px; display: none; background: white; padding: 15px; border-radius: 12px; border: 1px solid #ddd; box-sizing: border-box; }
+        #reportContent { width: 100%; height: 250px; font-family: monospace; font-size: 13px; margin-top: 10px; border: 1px solid #eee; padding: 10px; box-sizing: border-box; background: #fafafa; line-height: 1.5; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div style="font-size: 18px; font-weight: bold;">🏫 班級點名系統</div>
+        <div style="font-size: 18px; font-weight: bold;">🏫 E1C 點名管理系統</div>
         <div class="stats">
             <div>應到: <span>56</span></div>
             <div>實到: <span id="pCount">0</span></div>
@@ -52,18 +51,26 @@
     </div>
 
     <div class="btn-group">
-        <button class="btn-all-p" onclick="markAllPresent()">✅ 全體設為出席</button>
-        <button class="btn-reset" onclick="resetRoll()">🧹 重置狀態</button>
+        <button class="btn-all-p" onclick="markAllPresent()">✅ 全體出席</button>
+        <button class="btn-reset" onclick="resetRoll()">🧹 清空</button>
     </div>
 
     <div class="student-list" id="list"></div>
+
+    <button class="btn-export" onclick="generateReport()">📋 產生成績/出席名單</button>
+
+    <div class="export-area" id="exportArea">
+        <div style="font-weight: bold; font-size: 14px;">產出的名單 (含完整學號)：</div>
+        <textarea id="reportContent" readonly></textarea>
+        <button onclick="copyReport()" style="background: #333; color: white; width: 100%; margin-top: 10px;">點擊複製文字</button>
+        <button onclick="closeReport()" style="background: transparent; color: #999; width: 100%; margin-top: 5px; font-size: 12px;">關閉視窗</button>
+    </div>
 
     <script>
         const students = [
             {id:"1114300121", n:"龔昱瑄"}, {id:"1114300122", n:"余沛容"}, {id:"1114300123", n:"陳湘甯"}, {id:"1114300124", n:"林沁榆"}, {id:"1114300125", n:"蕭羽彤"}, {id:"1114300126", n:"林奕帆"}, {id:"1114300127", n:"陳乙瑄"}, {id:"1114300128", n:"王漆妤"}, {id:"1114300129", n:"陳靜宜"}, {id:"1114300130", n:"陳祉恩"}, {id:"1114300131", n:"陳又瑄"}, {id:"1114300132", n:"賴宥璇"}, {id:"1114300133", n:"陳玟慈"}, {id:"1114300134", n:"江芯語"}, {id:"1114300135", n:"陳世豪"}, {id:"1114300136", n:"曾安岑"}, {id:"1114300137", n:"賴瑾安"}, {id:"1114300138", n:"羅凱爾"}, {id:"1114300139", n:"辛俊文"}, {id:"1114300140", n:"黃靖晏"}, {id:"1114300141", n:"林紫騏"}, {id:"1114300142", n:"吳霈瑜"}, {id:"1114300143", n:"許唯芯"}, {id:"1114300144", n:"遊芯語"}, {id:"1114300145", n:"李易昌"}, {id:"1114300146", n:"李婕禕"}, {id:"1114300147", n:"李恩妮"}, {id:"1114300148", n:"林金姵"}, {id:"1114300149", n:"陳可紜"}, {id:"1114300151", n:"張雅玟"}, {id:"1114300152", n:"牛昱翔"}, {id:"1114300153", n:"陳以婕"}, {id:"1114300154", n:"張鈺婕"}, {id:"1114300155", n:"朱雯芳"}, {id:"1114300156", n:"連子甯"}, {id:"1114300157", n:"楊芷芹"}, {id:"1114300158", n:"陳琦涵"}, {id:"1114300159", n:"陳冠宇"}, {id:"1114300160", n:"陳漢庭"}, {id:"1114300161", n:"張乙芹"}, {id:"1114300162", n:"王妍菻"}, {id:"1114300163", n:"曲孝寬"}, {id:"1114300164", n:"王以倫"}, {id:"1114300165", n:"趙于嫻"}, {id:"1114300166", n:"林宜樺"}, {id:"1114300167", n:"柯品瑀"}, {id:"1114300168", n:"卓彥均"}, {id:"1114300169", n:"遊梁健雅"}, {id:"1114300170", n:"張子瑜"}, {id:"1114300171", n:"張湘翊"}, {id:"1114300172", n:"廖靚薇"}, {id:"1114300173", n:"黃毓霏"}, {id:"1114300174", n:"蔡悅琳"}, {id:"1114300175", n:"陳宥卉"}, {id:"1114300501", n:"賈伯珍"}, {id:"1114300502", n:"鄭皓軒"}
         ];
 
-        // 讀取存檔狀態，若無則預設為未知 (u)
         let rollStatus = JSON.parse(localStorage.getItem('e1c_roll_call')) || students.map(s => ({id: s.id, st: 'u'}));
 
         function render() {
@@ -75,18 +82,17 @@
                 const status = rollStatus[i].st;
                 const card = document.createElement('div');
                 card.className = `student-card ${status==='p'?'present':''} ${status==='a'?'absent':''}`;
-                card.onclick = () => toggleStatus(i);
+                card.onclick = () => { rollStatus[i].st = (status==='u'?'p':(status==='p'?'a':'u')); render(); };
                 
-                let statusTxt = '未標記';
-                if(status==='p') { statusTxt = '出席'; p++; }
-                if(status==='a') { statusTxt = '缺席'; a++; }
+                if(status==='p') p++;
+                if(status==='a') a++;
 
                 card.innerHTML = `
                     <div class="student-info">
-                        <span class="student-id">#${s.id.slice(-3)}</span>
+                        <span class="student-id">${s.id}</span>
                         <span class="student-name">${s.n}</span>
                     </div>
-                    <div class="status-label">${statusTxt}</div>
+                    <div style="font-size:12px; font-weight:bold;">${status==='p'?'✔️出席':(status==='a'?'❌缺席':'--')}</div>
                 `;
                 list.appendChild(card);
             });
@@ -96,24 +102,34 @@
             localStorage.setItem('e1c_roll_call', JSON.stringify(rollStatus));
         }
 
-        function toggleStatus(i) {
-            const cur = rollStatus[i].st;
-            // 循環切換: 未知 -> 出席 -> 缺席 -> 未知
-            rollStatus[i].st = cur === 'u' ? 'p' : (cur === 'p' ? 'a' : 'u');
-            render();
+        function generateReport() {
+            const now = new Date();
+            const timeStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} 點名紀錄`;
+            const presentList = students.filter((s, i) => rollStatus[i].st === 'p').map(s => `${s.id} ${s.n}`);
+            const absentList = students.filter((s, i) => rollStatus[i].st === 'a').map(s => `${s.id} ${s.n}`);
+
+            let report = `【${timeStr}】\n`;
+            report += `實到總數：${presentList.length} 人\n\n`;
+            report += `--- 出席名單 (${presentList.length}人) ---\n`;
+            report += presentList.length > 0 ? presentList.join('\n') : '(無人出席)';
+            report += `\n\n--- 缺席名單 (${absentList.length}人) ---\n`;
+            report += absentList.length > 0 ? absentList.join('\n') : '(無人缺席)';
+
+            document.getElementById('reportContent').value = report;
+            document.getElementById('exportArea').style.display = 'block';
+            window.scrollTo(0, document.body.scrollHeight);
         }
 
-        function markAllPresent() {
-            rollStatus = students.map(s => ({id: s.id, st: 'p'}));
-            render();
+        function copyReport() {
+            const content = document.getElementById('reportContent');
+            content.select();
+            document.execCommand('copy');
+            alert('包含學號的名單已複製！');
         }
 
-        function resetRoll() {
-            if(confirm('確定要清除所有點名紀錄嗎？')) {
-                rollStatus = students.map(s => ({id: s.id, st: 'u'}));
-                render();
-            }
-        }
+        function closeReport() { document.getElementById('exportArea').style.display = 'none'; }
+        function markAllPresent() { rollStatus = students.map(s => ({id: s.id, st: 'p'})); render(); }
+        function resetRoll() { if(confirm('重置點名紀錄？')) { rollStatus = students.map(s => ({id: s.id, st: 'u'})); render(); } }
 
         render();
     </script>
