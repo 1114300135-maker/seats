@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>E1C 點名 App (離線版)</title>
+    <title>E1C 點名 App (二選一版)</title>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <style>
@@ -12,7 +12,7 @@
             --absent-bg: #f8d7da; --absent-text: #721c24;
             --normal-bg: #ffffff;
         }
-        body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; padding-bottom: 50px; -webkit-user-select: none; }
+        body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; padding-bottom: 50px; -webkit-tap-highlight-color: transparent; }
         
         .header { position: sticky; top: 0; z-index: 100; width: 100%; max-width: 500px; background: #343a40; color: white; padding: 15px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); margin-bottom: 20px; text-align: center; box-sizing: border-box; }
         .stats { display: flex; justify-content: space-around; margin-top: 10px; font-size: 14px; }
@@ -28,24 +28,25 @@
         .student-card { 
             display: flex; align-items: center; justify-content: space-between;
             padding: 15px; background: var(--normal-bg); border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #ddd; transition: 0.1s;
         }
         .student-id { font-size: 12px; color: #888; }
         .student-name { font-size: 18px; font-weight: bold; }
+        
+        /* 狀態樣式 */
         .student-card.present { background: var(--present-bg); color: var(--present-text); border-color: #c3e6cb; }
         .student-card.absent { background: var(--absent-bg); color: var(--absent-text); border-color: #f5c6cb; }
         
+        .status-icon { font-size: 20px; font-weight: bold; }
+        
         .export-area { width: 100%; max-width: 500px; margin-top: 20px; display: none; background: white; padding: 15px; border-radius: 12px; border: 1px solid #ddd; box-sizing: border-box; }
         #reportContent { width: 100%; height: 250px; font-family: monospace; font-size: 13px; margin-top: 10px; border: 1px solid #eee; padding: 10px; box-sizing: border-box; background: #fafafa; }
-        
-        .offline-badge { font-size: 10px; background: #555; padding: 2px 6px; border-radius: 4px; margin-top: 5px; display: inline-block; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div style="font-size: 18px; font-weight: bold;">🏫 E1C 離線點名 App</div>
-        <div class="offline-badge">離線模式已就緒</div>
+        <div style="font-size: 18px; font-weight: bold;">🏫 E1C 點名管理 (離線版)</div>
         <div class="stats">
             <div>應到: <span>56</span></div>
             <div>實到: <span id="pCount">0</span></div>
@@ -55,23 +56,24 @@
 
     <div class="btn-group">
         <button class="btn-all-p" onclick="markAllPresent()">✅ 全體出席</button>
-        <button class="btn-reset" onclick="resetRoll()">🧹 清空</button>
+        <button class="btn-reset" onclick="resetRoll()">🧹 重置</button>
     </div>
 
     <div class="student-list" id="list"></div>
+
     <button class="btn-export" onclick="generateReport()">📋 產生報表</button>
 
     <div class="export-area" id="exportArea">
         <textarea id="reportContent" readonly></textarea>
-        <button onclick="copyReport()" style="background: #333; color: white; width: 100%; margin-top: 10px;">複製文字</button>
+        <button onclick="copyReport()" style="background: #333; color: white; width: 100%; margin-top: 10px; padding: 10px; border-radius: 5px;">複製報表文字</button>
         <button onclick="closeReport()" style="background: transparent; color: #999; width: 100%; margin-top: 5px;">關閉</button>
     </div>
 
     <script>
-        // 註冊離線 Service Worker
+        // 註冊離線支援
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').then(reg => console.log('離線支援已啟動'));
+                navigator.serviceWorker.register('./sw.js');
             });
         }
 
@@ -85,15 +87,34 @@
             const list = document.getElementById('list');
             list.innerHTML = '';
             let p = 0, a = 0;
+
             students.forEach((s, i) => {
                 const status = rollStatus[i].st;
                 const card = document.createElement('div');
                 card.className = `student-card ${status==='p'?'present':''} ${status==='a'?'absent':''}`;
-                card.onclick = () => { rollStatus[i].st = (status==='u'?'p':(status==='p'?'a':'u')); render(); };
-                if(status==='p') p++; if(status==='a') a++;
-                card.innerHTML = `<div class="student-info"><span class="student-id">${s.id}</span><span class="student-name">${s.n}</span></div><div style="font-size:12px; font-weight:bold;">${status==='p'?'✔️':(status==='a'?'❌':'--')}</div>`;
+                
+                // 循環邏輯：未標記 -> 出席 -> 缺席 -> 未標記
+                card.onclick = () => {
+                    if (status === 'u') rollStatus[i].st = 'p';
+                    else if (status === 'p') rollStatus[i].st = 'a';
+                    else rollStatus[i].st = 'u';
+                    render();
+                };
+                
+                let icon = '--';
+                if(status==='p') { icon = '✔️'; p++; }
+                if(status==='a') { icon = '❌'; a++; }
+
+                card.innerHTML = `
+                    <div class="student-info">
+                        <span class="student-id">${s.id}</span>
+                        <div class="student-name">${s.n}</div>
+                    </div>
+                    <div class="status-icon">${icon}</div>
+                `;
                 list.appendChild(card);
             });
+
             document.getElementById('pCount').innerText = p;
             document.getElementById('aCount').innerText = a;
             localStorage.setItem('e1c_roll_call', JSON.stringify(rollStatus));
@@ -104,16 +125,27 @@
             const timeStr = `${now.getMonth()+1}/${now.getDate()} 點名紀錄`;
             const pList = students.filter((s, i) => rollStatus[i].st === 'p').map(s => `${s.id} ${s.n}`);
             const aList = students.filter((s, i) => rollStatus[i].st === 'a').map(s => `${s.id} ${s.n}`);
-            let report = `【${timeStr}】\n實到：${pList.length} 人\n\n[出席]\n${pList.join('\n')}\n\n[缺席]\n${aList.join('\n') || '無'}`;
+
+            let report = `【${timeStr}】\n實到：${pList.length} 人\n\n`;
+            report += `[出席名單]\n${pList.join('\n') || '無'}\n\n`;
+            report += `[缺席名單]\n${aList.join('\n') || '無'}`;
+
             document.getElementById('reportContent').value = report;
             document.getElementById('exportArea').style.display = 'block';
             window.scrollTo(0, document.body.scrollHeight);
         }
 
-        function copyReport() { document.getElementById('reportContent').select(); document.execCommand('copy'); alert('已複製！'); }
+        function copyReport() {
+            const content = document.getElementById('reportContent');
+            content.select();
+            document.execCommand('copy');
+            alert('名單已複製！');
+        }
+
         function closeReport() { document.getElementById('exportArea').style.display = 'none'; }
         function markAllPresent() { rollStatus = students.map(s => ({id: s.id, st: 'p'})); render(); }
-        function resetRoll() { if(confirm('重置？')) { rollStatus = students.map(s => ({id: s.id, st: 'u'})); render(); } }
+        function resetRoll() { if(confirm('確定要清空今天的點名紀錄嗎？')) { rollStatus = students.map(s => ({id: s.id, st: 'u'})); render(); } }
+
         render();
     </script>
 </body>
